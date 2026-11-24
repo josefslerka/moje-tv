@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Moje TV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<script src="/static/subtitles.js?v=20261107-airplay-1"></script>
+<script src="/static/recordings.js?v=20261116-1"></script>
+<style>
+html,body{height:100%}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:272px minmax(0,1fr)}
+
+/* --- seznam kanálů --- */
+aside{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column;min-height:0}
+aside header{padding:20px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.channel-search{display:block;position:relative}
+.channel-search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:1.7;pointer-events:none}
+input{width:100%;padding:11px 12px 11px 40px;border:1px solid #383a45;border-radius:8px;background:var(--control);color:var(--text);font:inherit}
+aside h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:16px 18px 6px}
+.group-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;padding:4px 0;border:0;background:none;text-align:left;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer}
+.group-toggle:hover{color:var(--text)}
+.group-toggle:disabled{opacity:1;cursor:default}
+.group-chevron{display:inline-block;font-size:16px;line-height:1;transition:transform .15s}
+.group-toggle[aria-expanded="true"] .group-chevron{transform:rotate(90deg)}
+.group-count{margin-left:auto;padding:1px 7px;border-radius:6px;background:var(--chip);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:0}
+.group-playing{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.group-channels[hidden]{display:none}
+.group-toggle:focus-visible,.description-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:3px}
+#list{flex:1;padding-bottom:20px}
+button.ch{display:flex;align-items:center;gap:12px;width:calc(100% - 12px);min-height:54px;margin:2px 6px;padding:10px 12px;border:0;border-radius:8px;background:none;text-align:left;cursor:pointer;line-height:1.35;transition:background .15s}
+button.ch:hover{background:var(--hover)}
+button.ch.on{background:var(--selected);box-shadow:inset 3px 0 var(--accent);font-weight:600}
+.logo{width:36px;height:28px;object-fit:contain;flex:none}
+span.logo{border-radius:4px;background:var(--line)}
+.t{display:flex;flex-direction:column;min-width:0}
+.t small{color:var(--muted);font-weight:400;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* --- televize a program --- */
+main{min-width:0;min-height:0;overflow-y:auto}
+#theater{--video-width:min(100%, calc((100dvh - 238px) * 16 / 9));display:grid;grid-template-columns:minmax(0,1fr) 288px;gap:24px;padding:32px 24px;align-items:start;min-height:100%}
+.screen{display:flex;flex-direction:column;align-items:center;gap:20px;min-width:0}
+.tv{position:relative;width:var(--video-width);aspect-ratio:16/9;background:#000;border-radius:3px;overflow:hidden}
+.tv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.tv .idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;pointer-events:none}
+.tv .idle[hidden]{display:none}
+.tv .idle.empty-state{flex-direction:column;gap:14px;padding:24px;text-align:center;pointer-events:auto}
+.nochan{padding:20px 16px;color:var(--muted)}
+.nochan a{color:var(--text)}
+.info{width:var(--video-width);display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-start}
+.info .meta{flex:1 1 200px;min-width:0}
+.info b{font-size:22px;font-weight:650;letter-spacing:-.03em;display:block;margin-bottom:3px}
+.info small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.progress{height:3px;background:var(--line);border-radius:2px;margin-top:10px;max-width:320px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px}
+.status{color:var(--muted);font-size:13px;margin-top:6px}
+.status.live{color:var(--ok)}
+.status.err{color:var(--focus)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.subtitle-choice{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.subtitle-choice select{max-width:220px;min-width:140px;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--control);color:var(--text);font:inherit}
+.subtitle-status{font-size:12px;color:var(--muted);margin-top:5px;white-space:normal !important}
+.subtitle-status:empty{display:none}
+.subtitle-status.err{color:var(--focus)}
+#subtitleRetry{font-size:12px;margin-top:5px}
+.recording-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:12px;color:var(--muted)}
+.recording-controls:has(#recordStatus:empty){display:none}
+.recording-controls .err{color:var(--focus)}
+#recordBtn[aria-pressed="true"]{color:var(--focus)}
+#recordBtn svg circle{fill:currentColor;stroke:none}
+dialog{max-width:460px;width:calc(100% - 32px);padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text)}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+dialog h2{margin:0 0 4px;font-size:21px}
+dialog p{color:var(--muted);font-size:13px;margin:8px 0 16px}
+dialog .record-field{display:flex;align-items:center;gap:10px;margin:16px 0}
+dialog .record-field input{width:auto;padding:0}
+dialog .record-select{display:grid;gap:7px;margin:14px 0;font-size:13px}
+dialog select{width:100%;background:var(--control);color:var(--text);padding:9px;border:1px solid var(--line);border-radius:7px}
+dialog .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+#recordError{color:var(--focus)}
+.tv video::cue{background:rgba(0,0,0,.8);color:#fff}
+
+.guide{background:var(--raised);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100dvh - 132px);position:sticky;top:0;overflow:hidden}
+.guide header{padding:18px;border-bottom:1px solid var(--line)}
+.guide header small{display:block;font-size:18px;font-weight:650;letter-spacing:-.02em}
+.guide header b{display:block;margin-top:3px;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide header .about{display:inline-block;margin-top:10px;font-size:13px;color:var(--text);text-underline-offset:3px}
+.guide header .about:hover{color:var(--text)}
+.guide header .about[hidden]{display:none}
+#sched{overflow-y:auto}
+#sched .row{display:grid;grid-template-columns:42px minmax(0,1fr);gap:4px 10px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:14px}
+#sched .row:last-child{border-bottom:0}
+#sched .row.cur{background:color-mix(in srgb,var(--selected) 35%,var(--raised));box-shadow:inset 3px 0 var(--accent)}
+#sched .row.past{opacity:.5}
+#sched time{color:var(--muted);font-variant-numeric:tabular-nums}
+#sched .row b{font-weight:600;overflow-wrap:anywhere}
+#sched .row p{grid-column:2;min-width:0;margin:0;color:var(--muted);font-size:13px;white-space:pre-line;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#sched .row.expanded p{display:block;-webkit-line-clamp:unset;overflow:visible}
+#sched .description-toggle{grid-column:2;justify-self:start;margin-top:4px;padding:3px 0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+#sched .description-toggle:hover{color:var(--text)}
+#sched .description-toggle[hidden]{display:none}
+#sched .row .progress{grid-column:2;margin-top:6px}
+#sched .empty{display:flex;align-items:flex-start;gap:12px;padding:20px 18px;color:var(--muted);font-size:14px;line-height:1.5}
+#sched .empty::before{content:"i";display:inline-flex;justify-content:center;align-items:center;flex:none;width:18px;height:18px;margin-top:2px;border:1px solid var(--muted);border-radius:50%;font:12px Georgia,serif}
+
+/* --- zvětšený režim: bez seznamu kanálů --- */
+body.big .app{grid-template-columns:0 1fr}
+body.big aside{visibility:hidden}
+body.big #theater{--video-width:min(100%, calc((100dvh - 218px) * 16 / 9));grid-template-columns:minmax(0,1fr) 288px;padding:24px}
+
+/* --- celá obrazovka: televize a program vedle sebe --- */
+body #theater.fs{position:fixed;inset:0;z-index:100;background:#000;padding:0 !important;gap:0;grid-template-columns:minmax(0,1fr) 320px;height:100vh;height:100dvh;align-items:stretch}
+#theater.fs .screen{justify-content:center;gap:0;position:relative}
+#theater.fs .tv{width:100%;height:100%;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none}
+#theater.fs .controls .hide-fs{display:none}
+#theater.fs .info{position:absolute;left:0;right:0;bottom:0;width:auto;padding:40px 28px 22px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s}
+#theater.fs .screen:hover .info,#theater.fs .info:focus-within{opacity:1}
+#theater.fs .guide{border-radius:0;border:0;border-left:1px solid var(--line);max-height:100dvh;height:100dvh;position:static}
+#theater.fs.noguide{grid-template-columns:1fr 0}
+#theater.fs.noguide .guide{display:none}
+
+@media (min-width:1600px){.app{grid-template-columns:296px minmax(0,1fr)}#theater{padding:40px 24px;gap:24px}.guide{max-height:calc(100dvh - 148px)}}
+/* --- telefon a tablet: obraz zůstává před seznamem --- */
+@media (max-width:900px){
+  body{display:block;height:auto;overflow:auto}
+  .app{display:flex;flex-direction:column}
+  body.big aside{visibility:visible}
+  aside{order:2;border-right:0;border-top:1px solid var(--line);max-height:55dvh}
+  aside header{padding:14px 16px}
+  main{order:1;overflow:visible}
+  #theater,body.big #theater{--video-width:100%;grid-template-columns:1fr;padding:20px 16px;gap:20px;min-height:0}
+  .info{gap:14px}
+  .info .meta{flex-basis:100%}
+  .controls{width:100%;justify-content:flex-start}
+  .guide{position:static;max-height:50vh}
+  .hide-m{display:none}
+  body #theater.fs{grid-template-columns:minmax(0,1fr) 260px}
+}
+@media (max-width:600px){
+  body #theater.fs{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,.45fr)}
+  body #theater.fs.noguide{grid-template-rows:1fr}
+  #theater.fs .guide{height:auto;max-height:none;border-left:0;border-top:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<div class="app">
+<aside>
+  <header><label class="channel-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="q" type="search" aria-label="Hledat kanál" placeholder="Hledat kanál…" autocomplete="off"></label></header>
+  <div id="list"></div>
+</aside>
+<main>
+  <section id="theater">
+    <div class="screen">
+      <div class="tv">
+        <video id="v" playsinline autoplay></video>
+        <div class="idle" id="idle">Vyberte kanál vlevo</div>
+      </div>
+      <div class="info">
+        <div class="meta">
+          <b id="now">Moje TV</b>
+          <small id="prog"></small>
+          <div class="progress" id="pbar" hidden><i></i></div>
+          <div id="st" class="status"></div>
+          <div id="subtitleStatus" class="subtitle-status" role="status" aria-live="polite"></div>
+          <div id="airplayStatus" class="subtitle-status" role="status" aria-live="polite"></div>
+          <div class="recording-controls"><span id="recordStatus" role="status" aria-live="polite"></span><a href="/zaznamy">Záznamy</a></div>
+          <button id="subtitleRetry" class="btn" type="button" hidden>Zkusit titulky znovu</button>
+        </div>
+        <div class="controls">
+          <label class="subtitle-choice" for="subtitleSelect">Titulky
+            <select id="subtitleSelect" disabled title="Automaticky: titulky vysílatele, jinak přepis rozpoznaného jazyka.">
+              <option value="auto">Automaticky</option><option value="off" selected>Vypnuto</option>
+            </select>
+          </label>
+          <button class="btn" id="recordBtn" type="button" disabled aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg><span id="recordLabel">Record</span></button>
+          <button class="btn" id="airplayBtn" type="button" hidden disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17H4V5h16v12h-3M8 21l4-6 4 6z"/></svg><span id="airplayLabel">AirPlay</span></button>
+          <button class="btn" id="airplayStop" type="button" hidden>Ukončit AirPlay</button>
+          <button class="btn hide-fs hide-m" id="bigBtn" type="button" aria-pressed="false" title="Klávesa T"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span id="bigLabel">Zvětšit</span></button>
+          <button class="btn" id="guideBtn" type="button" aria-pressed="true" title="Klávesa P"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h12M8 12h12M8 19h12M3 5h.01M3 12h.01M3 19h.01"/></svg>Program</button>
+          <button class="btn" id="fsBtn" type="button" title="Klávesa F"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span id="fsLabel">Celá obrazovka</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="guide">
+      <header><small>Program</small><b id="gname">—</b><a id="about" class="about" href="#" target="_blank" hidden>O kanálu</a></header>
+      <div id="sched"><div class="empty">Vyberte kanál.</div></div>
+    </div>
+  </section>
+</main>
+</div>
+<dialog id="recordDialog" aria-labelledby="recordTitle">
+  <form id="recordForm">
+    <h2 id="recordTitle">Nahrát vysílání</h2>
+    <p id="recordChannel"></p>
+    <label class="record-field"><input type="checkbox" id="recordVideo" checked> Video se zvukem</label>
+    <label class="record-field"><input type="checkbox" id="recordText" checked> Textový záznam</label>
+    <label class="record-select" id="recordTextChoice">Podoba textu
+      <select id="recordTextMode">
+        <option value="asr">Původní jazyk · lokální přepis</option>
+        <option value="translate-cs">Čeština · zdarma, lokální překlad</option>
+        <option value="translate-cs-api">Čeština · Gemini, placené API</option>
+      </select>
+    </label>
+    <p id="recordPaid" hidden>Text se bude překládat přes placené API. Náklady se započítají v Nastavení.</p>
+    <label class="record-select">Automaticky ukončit po
+      <select id="recordLimit"><option value="900">15 minutách</option><option value="1800">30 minutách</option><option value="3600">1 hodině</option><option value="7200" selected>2 hodinách</option></select>
+    </label>
+    <p>Nahrávání pokračuje i po přepnutí kanálu nebo zavření přehrávače. Mac musí zůstat zapnutý. Text se vytváří samostatným přepisem řeči.</p>
+    <p id="recordSpace"></p>
+    <p id="recordError" role="alert"></p>
+    <div class="dialog-actions"><button class="btn" id="recordCancel" type="button">Zrušit</button><button class="btn primary" id="recordStart" type="submit">Začít nahrávat</button></div>
+  </form>
+</dialog>
+<script>
+const $ = id => document.getElementById(id);
+const v = $('v'), list = $('list'), q = $('q'), theater = $('theater');
+let CH = [], NOW = {}, hls = null, idx = -1;
+const subtitles = new TVSubtitles(v, $('subtitleSelect'), $('subtitleStatus'), $('subtitleRetry'));
+const recorder = new TVRecorder();
+const airplayBtn = $('airplayBtn'), airplayStop = $('airplayStop');
+airplayBtn.hidden = typeof v.webkitShowPlaybackTargetPicker !== 'function';
+let airplay = null;
+const hm = iso => new Date(iso).toLocaleTimeString('cs-CZ', {hour: '2-digit', minute: '2-digit'});
+const pct = (a, b) => Math.min(100, Math.max(0, (Date.now() - new Date(a)) / (new Date(b) - new Date(a)) * 100));
+const store = (k, val) => { try { val === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, val); } catch(e){} };
+const load = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+let collapsedChannelGroups = new Set();
+try {
+  const saved = JSON.parse(load('collapsedChannelGroups') || '[]');
+  if (Array.isArray(saved)) collapsedChannelGroups = new Set(saved.filter(value => typeof value === 'string'));
+} catch(e){}
+const programmeDescriptions = new Map();
+let scheduleChannel = null;
+const channelGroup = c => c.favorite ? '★ Oblíbené' : c.group;
+const saveChannelGroups = () => store('collapsedChannelGroups', JSON.stringify([...collapsedChannelGroups]));
+
+function status(t, cls){ $('st').textContent = t; $('st').className = 'status' + (cls ? ' ' + cls : ''); }
+function logo(c){
+  if (!c.logo) return Object.assign(document.createElement('span'), {className: 'logo'});
+  const im = new Image(); im.src = c.logo; im.alt = ''; im.loading = 'lazy'; im.className = 'logo';
+  im.onerror = () => im.replaceWith(Object.assign(document.createElement('span'), {className: 'logo'}));
+  return im;
+}
+
+// --- seznam kanálů ---
+function toggleChannelGroup(name){
+  const closed = !collapsedChannelGroups.has(name);
+  if (closed) collapsedChannelGroups.add(name); else collapsedChannelGroups.delete(name);
+  saveChannelGroups();
+  for (const section of list.querySelectorAll('.channel-group')){
+    if (section.dataset.group !== name) continue;
+    section.querySelector('.group-channels').hidden = closed;
+    const button = section.querySelector('.group-toggle');
+    button.setAttribute('aria-expanded', String(!closed));
+    button.title = closed ? 'Rozbalit skupinu' : 'Sbalit skupinu';
+  }
+}
+function render(){
+  const f = q.value.trim().toLowerCase();
+  const focused = list.contains(document.activeElement) ? document.activeElement.id : '';
+  const aside = list.closest('aside'), scroll = aside.scrollTop;
+  list.innerHTML = '';
+  if (!CH.length){ list.innerHTML = '<div class="nochan">Zatím nemáte žádné kanály. <a href="/sprava">Přidat kanály</a></div>'; return; }
+  const groups = [];
+  CH.forEach((c, i) => {
+    if (f && !c.name.toLowerCase().includes(f)) return;
+    const name = channelGroup(c);
+    if (groups.at(-1)?.name !== name) groups.push({name,channels:[]});
+    groups.at(-1).channels.push({channel:c,index:i});
+  });
+  if (!groups.length){ const empty = document.createElement('div'); empty.className = 'nochan'; empty.textContent = 'Žádný kanál neodpovídá hledání.'; list.append(empty); }
+  groups.forEach((group, number) => {
+    const section = document.createElement('section'); section.className = 'channel-group'; section.dataset.group = group.name;
+    const heading = document.createElement('h2'), toggle = document.createElement('button');
+    toggle.type = 'button'; toggle.className = 'group-toggle'; toggle.id = 'channel-group-toggle-'+number;
+    const open = !!f || !collapsedChannelGroups.has(group.name);
+    toggle.setAttribute('aria-expanded',String(open));
+    toggle.setAttribute('aria-controls','channel-group-'+number);
+    toggle.setAttribute('aria-label',group.name+', počet kanálů: '+group.channels.length);
+    toggle.disabled = !!f; toggle.title = f ? 'Při hledání jsou skupiny rozbalené' : open ? 'Sbalit skupinu' : 'Rozbalit skupinu';
+    const arrow = document.createElement('span'); arrow.className = 'group-chevron'; arrow.textContent = '›'; arrow.setAttribute('aria-hidden','true');
+    const name = document.createElement('span'); name.textContent = group.name;
+    toggle.append(arrow,name);
+    if (group.channels.some(item => item.index === idx)){
+      const dot = document.createElement('span'); dot.className = 'group-playing'; dot.setAttribute('aria-hidden','true'); toggle.append(dot);
+    }
+    const count = document.createElement('span'); count.className = 'group-count'; count.textContent = group.channels.length; count.setAttribute('aria-hidden','true'); toggle.append(count);
+    toggle.onclick = () => toggleChannelGroup(group.name); heading.append(toggle); section.append(heading);
+    const body = document.createElement('div'); body.className = 'group-channels'; body.id = 'channel-group-'+number; body.hidden = !open;
+    for (const {channel:c,index:i} of group.channels){
+      const b = document.createElement('button'); b.className = 'ch' + (i === idx ? ' on' : ''); b.id = 'channel-'+c.id;
+      const t = document.createElement('span'); t.className = 't'; t.append(c.name);
+      const n = NOW[c.id]?.now;
+      if (n){ const sm = document.createElement('small'); sm.textContent = n.title; sm.title = n.title; t.append(sm); }
+      b.append(logo(c), t); b.onclick = () => play(i); body.append(b);
+    }
+    section.append(body); list.append(section);
+  });
+  aside.scrollTop = scroll;
+  if (focused) document.getElementById(focused)?.focus({preventScroll:true});
+}
+
+// --- přehrávání ---
+function start(){
+  v.play().catch(() => { v.muted = true; v.play().then(() => status('● Živě, ztlumeno', 'live')).catch(() => status('Klikněte na přehrát')); });
+}
+// Kanály, které v prohlížeči hrají jen přes proxy na serveru (nepovolují CORS).
+let viaProxy = new Set(); try { viaProxy = new Set(JSON.parse(load('viaProxy') || '[]')); } catch(e){}
+async function proxied(url){
+  const r = await fetch('/api/proxy-link?url=' + encodeURIComponent(url));
+  if (!r.ok) throw new Error('proxy');
+  return (await r.json()).url;
+}
+function play(i){
+  resetAirPlay();
+  idx = i; const c = CH[i];
+  recorder.setChannel(c);
+  airplayBtn.disabled = false;
+  if (collapsedChannelGroups.delete(channelGroup(c))) saveChannelGroups();
+  subtitles.beginChannel();
+  $('now').textContent = c.name; $('gname').textContent = c.name; $('idle').hidden = true;
+  $('about').hidden = !c.wiki; if (c.wiki) $('about').href = c.wiki;
+  document.title = c.name + ' · Moje TV';
+  status('Načítám…'); render(); showProg(); loadSchedule();
+  store('lastCh', String(c.id));
+  // Živé vysílání z YouTube a Twitche hraje v prohlížeči vždy přes server.
+  if (viaProxy.has(c.id) || c.web) proxied(c.url).then(u => attach(c, u, true)).catch(() => attach(c, c.url, false));
+  else attach(c, c.url, false);
+}
+function attach(c, src, isProxy){
+  if (airplay || CH[idx] !== c) return;
+  v.controls = true;
+  if (hls){ hls.destroy(); hls = null; }
+  if (window.Hls && Hls.isSupported()){
+    // Keep prefetch within the window of audio retained for AI captions.
+    hls = new Hls({ liveDurationInfinity: true, maxBufferLength: 30, maxMaxBufferLength: 30 });
+    subtitles.attach(c.id, hls);
+    hls.on(Hls.Events.MANIFEST_PARSED, start);
+    hls.on(Hls.Events.ERROR, async (e, d) => {
+      if (!d.fatal || airplay) return;
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR){ hls.recoverMediaError(); return; }
+      if (!isProxy && d.type === Hls.ErrorTypes.NETWORK_ERROR){
+        status('Zkouším přes server…');
+        try {
+          const u = await proxied(c.url);
+          viaProxy.add(c.id); store('viaProxy', JSON.stringify([...viaProxy]));
+          attach(c, u, true); return;
+        } catch(err){}
+      }
+      status('Stream teď nejde přehrát. Zkuste VLC nebo Apple TV.', 'err');
+    });
+    hls.loadSource(src); hls.attachMedia(v);
+    // Některé streamy se bez chyby zaseknou. Když se video do 12 s nerozběhne, zkusí se proxy.
+    if (!isProxy){
+      const mine = hls;
+      setTimeout(async () => {
+        if (airplay || hls !== mine || CH[idx] !== c || v.currentTime > 0) return;
+        status('Zkouším přes server…');
+        try { const u = await proxied(c.url); viaProxy.add(c.id); store('viaProxy', JSON.stringify([...viaProxy])); attach(c, u, true); } catch(e){}
+      }, 12000);
+    }
+  } else { subtitles.attach(c.id, null); v.src = src; start(); }
+}
+const live = () => v.muted ? status('● Živě, ztlumeno', 'live') : status('● Živě', 'live');
+v.addEventListener('playing', live);
+v.addEventListener('volumechange', () => { if (!v.paused) live(); });
+v.addEventListener('waiting', () => status('Načítám…'));
+v.addEventListener('error', () => {
+  if (airplay?.url && v.error) returnFromAirPlay('Safari nedokázalo přehrát stream pro AirPlay.', true);
+  else if (!hls && !airplay) status('Stream teď nejde přehrát.', 'err');
+});
+
+// --- AirPlay: native HLS URL including a receiver-visible subtitle rendition ---
+function airplayNotice(message, error = false){
+  $('airplayStatus').textContent = message;
+  $('airplayStatus').classList.toggle('err', error);
+}
+function airplayControls(){
+  airplayBtn.disabled = idx < 0 || !!airplay && (!airplay.ready || airplay.connected);
+  $('airplayLabel').textContent = airplay?.connected ? 'AirPlay běží'
+    : airplay?.ready ? 'Vybrat televizi' : airplay ? 'Připravuji AirPlay…' : 'AirPlay';
+  airplayStop.hidden = !airplay;
+}
+function releaseAirPlay(session){
+  if (session) fetch('/api/airplay/sessions/' + encodeURIComponent(session), {method:'DELETE', keepalive:true}).catch(() => {});
+}
+function resetAirPlay(){
+  const old = airplay;
+  airplay = null;
+  if (old){
+    clearTimeout(old.loadTimeout);
+    releaseAirPlay(old.session);
+    if (old.url){
+      v.disableRemotePlayback = true;
+      v.removeAttribute('src'); v.load();
+    }
+  }
+  airplayNotice(''); airplayControls();
+}
+function returnFromAirPlay(message = '', error = false){
+  play(idx);
+  airplayNotice(message, error);
+}
+async function airplayRequest(path, options){
+  const response = await fetch('/api/airplay/sessions' + path, {...options, cache:'no-store'});
+  const data = await response.json();
+  if (!response.ok || data.state === 'error') throw new Error(data.error || data.detail || 'Příprava AirPlay se nezdařila.');
+  return data;
+}
+async function prepareAirPlay(){
+  const choice = subtitles.mode;
+  const active = choice === 'auto' ? subtitles.active : choice;
+  const tracks = subtitles.tracks().filter(item => !item.disabled);
+  const automaticASR = choice === 'auto' && !tracks.length && subtitles.backend?.available;
+  const mode = ['asr','translate-cs','translate-cs-api'].includes(active) ? active : automaticASR ? 'asr' : null;
+  const track = tracks.find(item => item.key === active);
+  const label = choice === 'off' ? 'bez titulků' : $('subtitleSelect').selectedOptions[0]?.textContent;
+  const pending = airplay = {choice, mode, track, label};
+  subtitles.beginChannel();
+  airplayControls(); airplayNotice(label ? 'Připravuji přenos · ' + label : 'Připravuji přenos…');
+  try {
+    const prepared = await airplayRequest('', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({channel_id:CH[idx].id, mode})
+    });
+    if (airplay !== pending){ releaseAirPlay(prepared.session); return; }
+    pending.session = prepared.session;
+    let state = prepared.state;
+    const deadline = Date.now() + 50000;
+    while (airplay === pending && state === 'preparing' && Date.now() < deadline){
+      await new Promise(resolve => setTimeout(resolve, 600));
+      if (airplay !== pending) return;
+      state = (await airplayRequest('/' + pending.session)).state;
+    }
+    if (airplay !== pending) return;
+    if (state !== 'ready') throw new Error('Příprava AirPlay trvá příliš dlouho.');
+    if (hls){ hls.destroy(); hls = null; }
+    pending.url = prepared.url;
+    v.controls = true; v.disableRemotePlayback = false;
+    v.src = pending.url; v.load(); start();
+    pending.loadTimeout = setTimeout(() => {
+      if (airplay === pending && !pending.ready) returnFromAirPlay('Safari nedokázalo načíst stream pro AirPlay.', true);
+    }, 15000);
+  } catch(error){
+    if (airplay === pending) returnFromAirPlay(error.message || 'Příprava AirPlay se nezdařila.', true);
+  }
+}
+function selectAirPlayTrack(){
+  if (!airplay?.url) return;
+  const tracks = Array.from(v.textTracks).filter(track =>
+    ['subtitles','captions'].includes(track.kind) && !subtitles.oldTracks.has(track));
+  const language = (navigator.language || 'en').split('-')[0];
+  let selected;
+  if (airplay.mode) selected = tracks[0];
+  else if (airplay.track) selected = tracks.find(track => track.label === airplay.track.label)
+    || tracks.find(track => track.language === airplay.track.lang);
+  else if (airplay.choice === 'auto') selected = tracks.find(track => track.language.split('-')[0] === language)
+    || tracks.find(track => track.language.startsWith('en')) || tracks[0];
+  if (selected || airplay.choice === 'off'){
+    for (const track of tracks) track.mode = track === selected ? 'showing' : 'disabled';
+  }
+}
+v.textTracks.addEventListener('addtrack', selectAirPlayTrack);
+v.addEventListener('loadedmetadata', () => {
+  if (!airplay?.url) return;
+  selectAirPlayTrack();
+  clearTimeout(airplay.loadTimeout);
+  airplay.ready = true;
+  airplayControls();
+  airplayNotice('Vyber televizi přes AirPlay' + (airplay.label ? ' · ' + airplay.label : '') + '.');
+});
+v.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
+  if (!airplay?.ready) return;
+  if (v.webkitCurrentPlaybackTargetIsWireless){
+    airplay.connected = true; airplayControls();
+    airplayNotice('Přehrávám přes AirPlay' + (airplay.label ? ' · ' + airplay.label : '') + '.');
+  } else if (airplay.connected) returnFromAirPlay();
+});
+airplayBtn.addEventListener('click', () => {
+  if (airplay?.ready){
+    try { v.webkitShowPlaybackTargetPicker(); }
+    catch(e){ airplayNotice('Výběr televize přes AirPlay se nepodařilo otevřít.', true); }
+  } else if (!airplay && idx >= 0) prepareAirPlay();
+});
+airplayStop.addEventListener('click', () => returnFromAirPlay());
+window.addEventListener('pagehide', () => resetAirPlay());
+
+// --- program ---
+function showProg(){
+  const c = CH[idx]; const nn = c && NOW[c.id]; const bar = $('pbar');
+  if (!nn || !nn.now){ $('prog').textContent = nn?.next ? `Potom ${hm(nn.next.start)} ${nn.next.title}` : ''; bar.hidden = true; return; }
+  $('prog').textContent = `Teď: ${nn.now.title} (do ${hm(nn.now.stop)})` + (nn.next ? ` · Potom ${hm(nn.next.start)} ${nn.next.title}` : '');
+  bar.hidden = false; bar.firstElementChild.style.width = pct(nn.now.start, nn.now.stop) + '%';
+}
+async function loadNow(){
+  try { NOW = await (await fetch('/api/now')).json(); render(); showProg(); } catch(e){}
+}
+function updateDescriptionButtons(){
+  for (const button of $('sched').querySelectorAll('.description-toggle')){
+    const paragraph = document.getElementById(button.getAttribute('aria-controls'));
+    const style = getComputedStyle(paragraph);
+    const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize)*1.4;
+    button.hidden = paragraph.scrollHeight <= Math.ceil(lineHeight*2)+1;
+  }
+}
+if (window.ResizeObserver) new ResizeObserver(updateDescriptionButtons).observe($('sched'));
+else window.addEventListener('resize',updateDescriptionButtons);
+async function loadSchedule(){
+  const c = CH[idx]; const box = $('sched'); if (!c) return;
+  let rows = []; try { rows = await (await fetch('/api/schedule/' + c.id + '?limit=30')).json(); } catch(e){}
+  if (CH[idx]?.id !== c.id) return;
+  const scroll = scheduleChannel === c.id ? box.scrollTop : 0;
+  const focused = box.contains(document.activeElement) ? document.activeElement.dataset.programme : null;
+  scheduleChannel = c.id;
+  box.innerHTML = '';
+  if (!rows.length){ box.innerHTML = '<div class="empty">Pro tento kanál není program k dispozici.</div>'; return; }
+  const t = Date.now();
+  rows.forEach((r, index) => {
+    const d = document.createElement('div'); d.className = 'row';
+    const on = new Date(r.start) <= t && new Date(r.stop) > t;
+    if (on) d.classList.add('cur');
+    const tm = document.createElement('time'); tm.textContent = hm(r.start);
+    const b = document.createElement('b'); b.textContent = r.title;
+    d.append(tm, b);
+    if (on){ const p = document.createElement('div'); p.className = 'progress'; p.innerHTML = '<i></i>'; p.firstChild.style.width = pct(r.start, r.stop) + '%'; d.append(p); }
+    if (r.descr){
+      const key = JSON.stringify([c.id,r.start,r.stop,r.title]);
+      const p = document.createElement('p'); p.id = 'programme-description-'+index; p.textContent = r.descr;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'description-toggle';
+      button.dataset.programme = key; button.setAttribute('aria-controls',p.id);
+      const expanded = programmeDescriptions.has(key) ? programmeDescriptions.get(key) : on;
+      const setExpanded = open => {
+        d.classList.toggle('expanded',open); button.setAttribute('aria-expanded',String(open));
+        button.textContent = open ? 'Zkrátit popis' : 'Celý popis';
+      };
+      setExpanded(expanded); button.hidden = true;
+      button.onclick = () => {
+        const open = !d.classList.contains('expanded'); programmeDescriptions.set(key,open); setExpanded(open);
+        updateDescriptionButtons();
+      };
+      d.append(p,button);
+    }
+    box.append(d);
+  });
+  requestAnimationFrame(() => {
+    if (scheduleChannel !== c.id) return;
+    updateDescriptionButtons();
+    box.scrollTop = scroll;
+    if (focused){
+      Array.from(box.querySelectorAll('.description-toggle')).find(button => button.dataset.programme === focused)?.focus({preventScroll:true});
+    }
+  });
+}
+setInterval(() => { loadNow(); if (idx >= 0) loadSchedule(); }, 60000);
+
+// --- režimy zobrazení ---
+function setBig(on){
+  document.body.classList.toggle('big', on); $('bigBtn').setAttribute('aria-pressed', on);
+  $('bigLabel').textContent = on ? 'Zmenšit' : 'Zvětšit'; store('big', on ? '1' : undefined);
+}
+function setGuide(on){
+  theater.classList.toggle('noguide', !on); $('guideBtn').setAttribute('aria-pressed', on);
+  document.querySelector('.guide').style.display = on ? '' : 'none';
+  theater.style.gridTemplateColumns = on ? '' : '1fr';
+  store('noguide', on ? undefined : '1');
+}
+// Celá obrazovka: třída .fs roztáhne televizi s programem přes okno. Kde to jde,
+// zapne se i skutečný režim celé obrazovky. Na iPhonu funguje aspoň roztažení.
+function setFs(on){
+  theater.classList.toggle('fs', on);
+  $('fsLabel').textContent = on ? 'Ukončit celou obrazovku' : 'Celá obrazovka';
+  if (on && !document.fullscreenElement) theater.requestFullscreen?.().catch(() => {});
+  if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+function toggleFs(){ setFs(!theater.classList.contains('fs')); }
+$('bigBtn').onclick = () => setBig(!document.body.classList.contains('big'));
+$('guideBtn').onclick = () => setGuide(theater.classList.contains('noguide'));
+$('fsBtn').onclick = toggleFs;
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && theater.classList.contains('fs')) setFs(false); });
+v.addEventListener('dblclick', e => { e.preventDefault(); toggleFs(); });
+
+q.addEventListener('input', render);
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if ((k === 'arrowdown' || k === 'arrowup') && CH.length){
+    e.preventDefault(); play((idx + (k === 'arrowdown' ? 1 : -1) + CH.length) % CH.length);
+    document.querySelector('button.ch.on')?.scrollIntoView({block: 'nearest'});
+  } else if (k === 'f'){ toggleFs(); }
+  else if (k === 't'){ setBig(!document.body.classList.contains('big')); }
+  else if (k === 'p'){ setGuide(theater.classList.contains('noguide')); }
+  else if (k === 'm'){ v.muted = !v.muted; }
+  else if (k === 'escape' && theater.classList.contains('fs')){ setFs(false); }
+});
+
+// --- patička: playlist a kontrola streamů ---
+async function loadChannels(){
+  const cur = CH[idx]?.id;
+  CH = await (await fetch('/api/channels')).json();
+  idx = CH.findIndex(c => c.id === cur);
+  render();
+  if (!CH.length){
+    // Prázdný seznam: nabídnout přidání kanálů.
+    $('idle').innerHTML = '<span>Zatím nemáte žádné kanály.</span><a class="btn" href="/sprava">Přidat první kanály</a>';
+    $('idle').classList.add('empty-state');
+    $('gname').textContent = '—';
+    $('sched').innerHTML = '<div class="empty">Kanály přidáte na stránce Přidat kanály. Začít můžete s výběrem ★ Doporučené.</div>';
+  }
+}
+
+if (load('big')) setBig(true);
+if (load('noguide')) setGuide(false);
+loadChannels().then(async () => {
+  await loadNow();
+  const want = Number(new URLSearchParams(location.search).get('ch')) || Number(load('lastCh'));
+  const li = CH.findIndex(c => c.id === want); if (li >= 0) play(li);
+  if (location.search) history.replaceState(null, '', '/');
+});
+</script>
+</body>
+</html>

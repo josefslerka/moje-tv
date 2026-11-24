@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Wiki · Moje TV</title>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<style>
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:290px 1fr}
+/* boční panel */
+.side{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.side .q{margin:20px 14px 10px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--control)}
+.side .filters{display:flex;gap:6px;padding:0 14px 10px;font-size:13px}
+.chip{padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--chip);cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--selected);color:var(--text);border-color:var(--selected-line)}
+.nav-tree{overflow-y:auto;padding:0 8px 24px;flex:1}
+.nav-tree details{margin-top:6px}
+.nav-tree summary{list-style:none;cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:6px 8px;display:flex;justify-content:space-between}
+.nav-tree summary::-webkit-details-marker{display:none}
+.nav-tree summary::after{content:"▸"}
+.nav-tree details[open] summary::after{content:"▾"}
+.nav-tree a{display:block;padding:4px 10px;border-radius:7px;text-decoration:none;color:var(--text);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-tree a:hover{background:var(--hover)}
+.nav-tree a[aria-current="page"]{background:var(--selected);box-shadow:inset 3px 0 var(--accent);font-weight:600}
+.nav-tree a.mine::after{content:" ●";color:var(--accent);font-size:10px;vertical-align:middle}
+.nav-tree a.gone{color:var(--muted);text-decoration:line-through}
+.nav-tree a.home{font-weight:600;margin-top:8px}
+.hit{display:block;padding:7px 10px;border-radius:8px;text-decoration:none;color:var(--text)}
+.hit:hover{background:var(--hover)}
+.hit b{display:block;font-size:14px}
+.hit small{color:var(--muted);font-size:12px;display:block;line-height:1.35}
+.hit mark{background:none;color:var(--text);font-weight:600}
+.empty{color:var(--muted);font-size:14px;padding:10px}
+/* obsah */
+.main{overflow-y:auto;min-height:0}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 32px 80px;display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:36px}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px;color:var(--muted)}
+.bar .crumbs a{color:var(--muted);text-decoration:none}
+.bar .crumbs a:hover{color:var(--text)}
+.btn{font-size:13px}
+.toc{position:sticky;top:22px;align-self:start;font-size:13px;margin-top:44px}
+.toc b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.toc a{display:block;color:var(--muted);text-decoration:none;padding:3px 0 3px 10px;border-left:2px solid var(--line)}
+.toc a.l3{padding-left:20px}
+.toc a:hover,.toc a.on{color:var(--text);border-left-color:var(--accent)}
+.toc:empty{display:none}
+/* text stránky */
+.doc{min-width:0}
+.doc h1{font-size:30px;line-height:1.2;margin:4px 0 14px}
+.doc h2{font-size:20px;margin:30px 0 10px;padding-top:6px;border-top:1px solid var(--line)}
+.doc h3{font-size:16px;margin:22px 0 8px}
+.doc h1+img,.doc > img:first-of-type{float:right;max-width:140px;max-height:90px;object-fit:contain;margin:0 0 12px 18px;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--line)}
+.doc a{color:var(--link);text-decoration:none}
+.doc a:hover{text-decoration:underline}
+.doc a[href^="http"]::after{content:" ↗";font-size:.8em;color:var(--muted)}
+.doc a[href^="obsidian:"]::after{content:" ◆";font-size:.75em;color:var(--muted)}
+.doc ul,.doc ol{padding-left:22px}
+.doc li{margin:3px 0}
+.doc code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--hover);padding:1px 5px;border-radius:5px}
+.doc pre{background:var(--hover);padding:12px 14px;border-radius:10px;overflow-x:auto}
+.doc pre code{background:none;padding:0}
+.doc .tbl{overflow-x:auto;margin:10px 0;border:1px solid var(--line);border-radius:10px}
+.doc table{border-collapse:collapse;width:100%;font-size:14px}
+.doc th,.doc td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.doc th{background:var(--hover);font-weight:600;white-space:nowrap}
+.doc tr:last-child td{border-bottom:0}
+.doc blockquote{margin:14px 0;padding:10px 14px;border-left:3px solid var(--line);color:var(--muted)}
+.doc .callout{--c:var(--c-note);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 7%,var(--panel));border-radius:10px;color:var(--text)}
+.doc .callout p{margin:6px 0}
+.doc .callout .callout-title{font-weight:600;color:var(--c);margin-top:0}
+.doc .callout-info{--c:var(--c-info)} .doc .callout-question{--c:var(--c-question)}
+.doc .callout-warning,.doc .callout-danger{--c:var(--c-warning)} .doc .callout-tip,.doc .callout-success{--c:var(--c-tip)}
+.doc :target{scroll-margin-top:16px}
+.facts{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 14px}
+.facts span{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--hover);color:var(--muted)}
+.facts span.mine{background:color-mix(in srgb,var(--accent) 14%,var(--panel));color:var(--text)}
+.notes-empty{color:var(--muted);font-style:italic;font-size:14px}
+.menu-btn{display:none}
+@media (max-width:1100px){.wrap{grid-template-columns:minmax(0,1fr)}.toc{display:none}}
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr}
+  .side{display:none;position:fixed;inset:0;top:auto;height:80vh;z-index:20;border-radius:16px 16px 0 0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.2)}
+  body.side-open .side{display:flex}
+  .wrap{padding:16px 16px 70px}
+  .menu-btn{display:inline-block}
+  .doc h1{font-size:25px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<div class="layout">
+  <aside class="side" id="side">
+    <input class="q" id="q" type="search" placeholder="Hledat ve wiki…  ( / )" autocomplete="off">
+    <div class="filters"><button class="chip" id="onlyMine" type="button" aria-pressed="false">Jen moje kanály</button></div>
+    <nav class="nav-tree" id="tree"></nav>
+  </aside>
+  <main class="main" id="main">
+    <div class="wrap">
+      <div class="doc-col">
+        <div class="bar">
+          <span class="crumbs" id="crumbs"></span>
+          <span><button class="btn menu-btn" id="menuBtn" type="button">Stránky</button> <a class="btn" id="obsidian" href="#">Upravit v Obsidianu</a></span>
+        </div>
+        <article class="doc" id="doc"></article>
+      </div>
+      <nav class="toc" id="toc"></nav>
+    </div>
+  </main>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null)); return e; };
+const NOTES = 'Moje poznámky';
+let tree = [], current = '';
+let onlyMine = false; try { onlyMine = localStorage.getItem('wiki.onlyMine') === '1'; } catch(e){}
+
+const pathOf = () => decodeURIComponent(location.pathname.replace(/^\/wiki\/?/, '')) || 'Moje TV';
+
+function drawTree(){
+  const box = $('tree'); box.innerHTML = '';
+  $('onlyMine').setAttribute('aria-pressed', onlyMine);
+  for (const g of tree){
+    const pages = g.pages.filter(p => !onlyMine || g.folder !== 'Kanály' || p.mine);
+    const links = pages.map(p => el('a', {href: '/wiki/' + encodeURI(p.path), textContent: p.title,
+                                         className: (p.mine ? 'mine ' : '') + (p.gone ? 'gone ' : '') + (g.folder ? '' : 'home'),
+                                         title: p.title}));
+    if (!g.folder){ box.append(...links); continue; }
+    const d = el('details', {open: g.folder !== 'Kanály' || onlyMine || current.startsWith('Kanály/')},
+                 el('summary', {}, el('span', {textContent: g.folder}), ));
+    d.querySelector('summary').append(el('span', {textContent: pages.length + ' ', style: 'margin-left:auto;margin-right:6px'}));
+    d.append(...links);
+    box.append(d);
+  }
+  markCurrent();
+}
+function markCurrent(){
+  document.querySelectorAll('#tree a').forEach(a => {
+    const on = decodeURIComponent(a.pathname.replace(/^\/wiki\//, '')) === current;
+    on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current');
+    if (on) a.scrollIntoView({block: 'nearest'});
+  });
+}
+
+async function show(push){
+  const path = pathOf();
+  const r = await fetch('/api/wiki/page?path=' + encodeURIComponent(path));
+  const doc = $('doc');
+  if (!r.ok){
+    doc.innerHTML = ''; doc.append(el('h1', {textContent: 'Stránka nenalezena'}),
+      el('p', {textContent: `Ve wiki není „${path}“. Možná ještě nebyla vygenerovaná — spusťte to na stránce Nastavení.`}));
+    $('toc').innerHTML = ''; current = path; markCurrent(); return;
+  }
+  const p = await r.json();
+  current = p.path;
+  document.title = p.title + ' · Wiki · Moje TV';
+  doc.innerHTML = p.html;
+  doc.querySelectorAll('table').forEach(t => { const w = el('div', {className: 'tbl'}); t.replaceWith(w); w.append(t); });
+  facts(p.meta);
+  notesHint();
+  $('obsidian').href = p.obsidian;
+  const parts = p.path.split('/');
+  $('crumbs').innerHTML = '';
+  $('crumbs').append(el('a', {href: '/wiki', textContent: 'Wiki'}), ...parts.slice(0, -1).flatMap(x => [' / ', el('span', {textContent: x})]));
+  const toc = $('toc'); toc.innerHTML = '';
+  const hs = p.toc.filter(h => h.text !== NOTES || doc.querySelector('.notes-empty') === null);
+  if (hs.length > 2){
+    toc.append(el('b', {textContent: 'Na stránce'}), ...hs.map(h => el('a', {href: '#' + h.id, textContent: h.text, className: 'l' + h.level})));
+  }
+  markCurrent();
+  const hash = decodeURIComponent(location.hash.slice(1));
+  const target = hash && document.getElementById(hash);
+  target ? target.scrollIntoView() : $('main').scrollTo(0, 0);
+  document.body.classList.remove('side-open');
+}
+
+// Štítky z hlavičky stránky kanálu: rychlý přehled nad textem.
+function facts(m){
+  if (m.typ !== 'kanál') return;
+  const chips = [];
+  if (m.v_mem_seznamu) chips.push(['V mém seznamu', 'mine']);
+  if (m.vlastnictvi && m.vlastnictvi !== 'neznámé') chips.push([m.vlastnictvi]);
+  if (m.zeme) chips.push([m.zeme]);
+  (m.platformy || []).forEach(x => chips.push([x]));
+  if (m.wikidata_shoda && m.wikidata_shoda !== 'žádná') chips.push(['Wikidata: ' + m.wikidata_shoda]);
+  if (!chips.length) return;
+  const box = el('div', {className: 'facts'}, ...chips.map(([t, c]) => el('span', {textContent: t, className: c || ''})));
+  const h1 = $('doc').querySelector('h1'); h1 ? h1.after(box) : $('doc').prepend(box);
+}
+// Prázdná sekce poznámek: krátká nápověda, kde se píšou.
+function notesHint(){
+  const h = [...$('doc').querySelectorAll('h2')].find(x => x.textContent === NOTES);
+  if (!h || h.nextElementSibling) return;
+  h.after(el('p', {className: 'notes-empty', textContent: 'Zatím bez poznámek. Píšou se v Obsidianu pod tenhle nadpis a generátor je nikdy nepřepíše.'}));
+}
+
+// Hledání
+let searchT;
+$('q').addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(search, 150); });
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ $('q').value = ''; search(); }
+  if (e.key === 'Enter'){ const first = $('tree').querySelector('a'); if (first) first.click(); }
+});
+async function search(){
+  const q = $('q').value.trim();
+  if (!q){ drawTree(); return; }
+  const hits = await (await fetch('/api/wiki/search?q=' + encodeURIComponent(q))).json();
+  if ($('q').value.trim() !== q) return;
+  const box = $('tree'); box.innerHTML = '';
+  if (!hits.length){ box.append(el('div', {className: 'empty', textContent: 'Nic nenalezeno.'})); return; }
+  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+  for (const h of hits){
+    const small = el('small');
+    h.snippet.split(re).forEach((part, i) => small.append(i % 2 ? el('mark', {textContent: part}) : part));
+    box.append(el('a', {className: 'hit', href: '/wiki/' + encodeURI(h.path)}, el('b', {textContent: h.title}),
+                  h.path.includes('/') ? el('small', {textContent: h.path.split('/')[0]}) : null, h.snippet ? small : null));
+  }
+}
+
+// Odkazy uvnitř wiki se otevírají bez načtení celé stránky.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a');
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target) return;
+  if (a.origin === location.origin && a.pathname.startsWith('/wiki')){
+    e.preventDefault();
+    if (a.pathname === location.pathname && a.hash){
+      history.pushState(null, '', a.hash);
+      const t = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (t) t.scrollIntoView({behavior: 'smooth'});
+      return;
+    }
+    history.pushState(null, '', a.pathname + a.hash);
+    show();
+  }
+});
+window.addEventListener('popstate', show);
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $('q')){ e.preventDefault(); $('q').focus(); $('q').select(); }
+});
+$('onlyMine').onclick = () => { onlyMine = !onlyMine; try { localStorage.setItem('wiki.onlyMine', onlyMine ? '1' : '0'); } catch(e){} drawTree(); };
+$('menuBtn').onclick = () => document.body.classList.toggle('side-open');
+
+(async () => {
+  try { tree = await (await fetch('/api/wiki/tree')).json(); } catch(e){ tree = []; }
+  current = pathOf();
+  drawTree();
+  await show();
+})();
+</script>
+</body>
+</html>

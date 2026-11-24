@@ -1,0 +1,10 @@
+include README.md LICENSE SECURITY.md CONTRIBUTING.md THIRD_PARTY.md
+include config.example.toml caption_runtime.example.json run.sh .python-version uv.lock
+recursive-include scripts *.py
+recursive-include tests *.py *.cjs
+recursive-include tvserver *.py
+recursive-include tvserver/static *.html *.css *.js
+prune data
+prune .venv
+prune tvserver/static/experiments
+global-exclude __pycache__ *.py[cod]

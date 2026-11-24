@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Moje kanály · Moje TV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<style>
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input{font:inherit;color:inherit}
+header.top{position:sticky;top:0}
+.page{max-width:1080px;margin:0 auto;padding:28px 24px 60px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.toolbar input[type=search]{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--control)}
+.toolbar label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.summary{font-size:13px;color:var(--muted);margin:6px 0 18px}
+.hint{font-size:13px;color:var(--muted)}
+.group{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:20px;overflow:hidden}
+.ghead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--raised)}
+.ghead .gname{font-weight:700;font-size:15px;border:0;background:none;padding:2px 4px;border-radius:6px;cursor:text;min-width:0}
+.ghead .gname:hover{background:var(--panel)}
+.ghead input.gname{background:var(--panel);border:1px solid var(--line);cursor:auto}
+.ghead .gcount{color:var(--muted);font-size:13px}
+.ghead .spacer{flex:1}
+.handle{cursor:grab;color:var(--muted);user-select:none;padding:0 2px;font-size:16px;line-height:1}
+.handle:active{cursor:grabbing}
+.list{min-height:44px}
+.list:empty::after{content:"Sem přetáhněte kanály";display:block;padding:12px 16px;color:var(--muted);font-size:13px}
+.ch{border-bottom:1px solid var(--line)}
+.ch:last-child{border-bottom:0}
+.line{display:grid;grid-template-columns:18px 44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 14px}
+.ch.off .line>*:not(.acts){opacity:.45}
+.logo{width:44px;height:28px;object-fit:contain}
+span.logo{display:block;border-radius:5px;background:var(--line)}
+.nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
+.dot.ok{background:var(--ok)}.dot.dead{background:var(--accent)}.dot.warn{background:var(--warn)}
+.rs{font-size:11px;padding:0 6px;border-radius:4px;background:rgba(178,106,0,.15);color:var(--warn);font-weight:600}
+.acts{display:flex;gap:4px;align-items:center}
+.icon{border:0;background:none;cursor:pointer;padding:5px 7px;border-radius:7px;color:var(--muted);font-size:15px;line-height:1}
+.icon:hover{background:var(--hover);color:var(--text)}
+.icon.star.on{color:var(--star)}
+.detail{display:none;padding:4px 14px 14px 88px}
+.ch.open .detail{display:block}
+.ch.open .line{background:var(--hover)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid label{font-size:12px;color:var(--muted);display:grid;gap:4px}
+.grid label.wide{grid-column:1/-1}
+.grid input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--control);width:100%}
+.tech{grid-column:1/-1;font-size:13px}
+.tech summary{cursor:pointer;color:var(--muted)}
+.tech label{font-size:12px;color:var(--muted);display:grid;gap:4px}
+.tech input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--control);width:100%}
+.facts{grid-column:1/-1;font-size:12px;color:var(--muted);display:grid;grid-template-columns:110px 1fr;gap:3px 10px;margin-top:4px}
+.facts code{word-break:break-all;color:var(--text);font-size:12px}
+.row-acts{grid-column:1/-1;display:flex;gap:8px;margin-top:6px;align-items:center}
+.row-acts .msg{font-size:13px;color:var(--muted)}
+.row-acts .msg.err{color:var(--focus)}.row-acts .msg.ok{color:var(--ok)}
+.ghost{opacity:.4}
+.chosen{background:var(--hover)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--panel);padding:8px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (max-width:700px){
+  .page{padding:16px}
+  .line{grid-template-columns:18px 36px minmax(0,1fr);}
+  .acts{grid-column:2/-1}
+  .detail{padding:4px 14px 14px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<div class="page">
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Najít kanál…" autocomplete="off">
+    <label><input type="checkbox" id="problems"> Jen s problémem</label>
+    <button class="btn" id="newGroup" type="button">+ Nová skupina</button>
+    <button class="btn" id="check" type="button">Zkontrolovat streamy</button>
+  </div>
+  <div class="summary" id="summary"></div>
+  <div id="groups"></div>
+  <p class="hint">Kanály i celé skupiny přesouváte za úchyt ⋮⋮. Pořadí platí i pro Apple TV.
+    Adresy playlistů, i jen pro oblíbené nebo jednu skupinu, najdete v <a href="/nastaveni">Nastavení</a>.</p>
+</div>
+<datalist id="groupList"></datalist>
+<div class="toast" id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+let CH = [], openId = null, extraGroups = [];
+const api = async (path, opt = {}) => {
+  const init = opt.body !== undefined ? {method: opt.method || 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(opt.body)} : opt;
+  const r = await fetch(path, init); const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || ('Chyba ' + r.status)); return d;
+};
+let toastT; function toast(t){ $('toast').textContent = t; $('toast').classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('show'), 1800); }
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k !== null && k !== undefined)); return e; };
+function logo(src){
+  if (!src) return el('span', {className: 'logo'});
+  const im = el('img', {src, alt: '', loading: 'lazy', className: 'logo'});
+  im.onerror = () => im.replaceWith(el('span', {className: 'logo'})); return im;
+}
+const fmt = iso => iso ? new Date(iso).toLocaleString('cs-CZ', {day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'nikdy';
+
+function state(c){
+  if (!c.enabled) return {cls: '', text: 'Vypnuto, v přehrávači se neukazuje'};
+  if (c.hidden) return {cls: 'dead', text: `Nefunguje, skryto (${c.detail})`};
+  if (c.status === 'dead') return {cls: 'warn', text: `Naposledy nehrál (${c.detail}), ještě se ukazuje`};
+  if (c.status === 'ok') return {cls: 'ok', text: c.now ? 'Teď: ' + c.now.title : (c.epg_count ? 'Hraje' : 'Hraje, bez programu')};
+  return {cls: '', text: 'Zatím neověřeno'};
+}
+const problem = c => !c.enabled || c.hidden || c.status === 'dead';
+
+// --- vykreslení ---
+function groupsInOrder(){
+  const seen = []; CH.forEach(c => { if (!seen.includes(c.group)) seen.push(c.group); });
+  extraGroups.forEach(g => { if (!seen.includes(g)) seen.push(g); });
+  return seen;
+}
+function render(){
+  const f = $('q').value.trim().toLowerCase(), onlyBad = $('problems').checked;
+  const filtering = !!f || onlyBad;
+  const box = $('groups'); box.innerHTML = '';
+  for (const g of groupsInOrder()){
+    const chans = CH.filter(c => c.group === g);
+    const shown = chans.filter(c => (!f || c.name.toLowerCase().includes(f)) && (!onlyBad || problem(c)));
+    if (filtering && !shown.length) continue;
+    const list = el('div', {className: 'list'}); list.dataset.group = g;
+    shown.forEach(c => list.append(row(c)));
+    const name = el('button', {className: 'gname', type: 'button', textContent: g, title: 'Klikněte pro přejmenování'});
+    name.onclick = () => renameGroup(name, g);
+    const sec = el('section', {className: 'group'},
+      el('div', {className: 'ghead'}, el('span', {className: 'handle ghandle', textContent: '⋮⋮', title: 'Přesunout skupinu'}), name,
+        el('span', {className: 'gcount', textContent: `${chans.length}`})), list);
+    sec.dataset.group = g;
+    box.append(sec);
+    if (!filtering) Sortable.create(list, {group: 'channels', handle: '.handle', animation: 150, ghostClass: 'ghost', chosenClass: 'chosen', onEnd: saveOrder});
+  }
+  if (!filtering) Sortable.create(box, {handle: '.ghandle', animation: 150, ghostClass: 'ghost', onEnd: saveOrder});
+  if (!CH.length && !extraGroups.length)
+    box.innerHTML = '<div class="group" style="padding:28px;text-align:center;color:var(--muted)">Seznam je prázdný. ' +
+      '<a href="/sprava" style="color:var(--text)">Přidejte první kanály</a>, třeba z výběru ★ Doporučené.</div>';
+  const total = CH.length, ok = CH.filter(c => c.enabled && !c.hidden && c.status !== 'dead').length;
+  const bad = CH.filter(problem).length, noEpg = CH.filter(c => !c.epg_count).length, fav = CH.filter(c => c.favorite).length;
+  $('summary').textContent = `${total} kanálů` + (bad ? ` · ${bad} s problémem` : ' · všechny v pořádku') + (filtering ? ' · při hledání nejde přetahovat' : '');
+  $('groupList').innerHTML = ''; groupsInOrder().forEach(g => $('groupList').append(el('option', {value: g})));
+}
+function row(c){
+  const st = state(c);
+  const star = el('button', {className: 'icon star' + (c.favorite ? ' on' : ''), type: 'button', textContent: c.favorite ? '★' : '☆', title: 'Oblíbený'});
+  star.onclick = e => { e.stopPropagation(); patch(c, {favorite: !c.favorite}, c.favorite ? 'Odebráno z oblíbených' : 'Přidáno do oblíbených'); };
+  const eye = el('button', {className: 'icon', type: 'button', textContent: c.enabled ? '◉' : '○', title: c.enabled ? 'Vypnout (schovat v přehrávači)' : 'Zapnout'});
+  eye.onclick = e => { e.stopPropagation(); patch(c, {enabled: !c.enabled}, c.enabled ? 'Kanál vypnut' : 'Kanál zapnut'); };
+  const more = el('button', {className: 'icon', type: 'button', textContent: openId === c.id ? '▴' : '▾', title: 'Upravit'});
+  const line = el('div', {className: 'line'},
+    el('span', {className: 'handle', textContent: '⋮⋮', title: 'Přesunout'}), logo(c.logo),
+    el('div', {}, el('div', {className: 'nm', textContent: c.name}),
+      el('div', {className: 'sub'}, c.restream ? el('span', {className: 'rs', textContent: 'Restream', title: 'Stream jde přes cizí server, ne přímo od stanice'}) : null,
+        el('span', {className: 'dot ' + st.cls}), el('span', {textContent: st.text}))),
+    el('div', {className: 'acts'}, star, eye, more));
+  const d = el('div', {className: 'ch' + (c.enabled ? '' : ' off') + (openId === c.id ? ' open' : '')}, line, detail(c));
+  d.dataset.id = c.id;
+  line.onclick = e => { if (e.target.closest('.handle')) return; openId = openId === c.id ? null : c.id; render(); };
+  return d;
+}
+function detail(c){
+  const name = el('input', {value: c.name});
+  const group = el('input', {value: c.group}); group.setAttribute('list', 'groupList');
+  const epgIn = el('input', {value: c.epg_override || '', placeholder: 'automaticky'});
+  const msg = el('span', {className: 'msg'});
+  const save = el('button', {className: 'btn primary sm', type: 'button', textContent: 'Uložit'});
+  save.onclick = async () => {
+    try { await patch(c, {name: name.value, group: group.value, epg: epgIn.value}, 'Uloženo', true); }
+    catch(e){ msg.textContent = e.message; msg.className = 'msg err'; }
+  };
+  const play = el('a', {className: 'btn sm', href: '/?ch=' + c.id, textContent: 'Přehrát'});
+  const about = c.wiki ? el('a', {className: 'btn sm', href: c.wiki, textContent: 'O kanálu'}) : null;
+  let armed = false;
+  const del = el('button', {className: 'btn danger sm', type: 'button', textContent: 'Odebrat'});
+  del.onclick = async () => {
+    if (!armed){ armed = true; del.textContent = 'Opravdu odebrat?'; setTimeout(() => { armed = false; del.textContent = 'Odebrat'; }, 3000); return; }
+    await api('/api/channels/' + c.id, {method: 'DELETE'}); CH = CH.filter(x => x.id !== c.id); openId = null; render(); toast('Kanál odebrán');
+  };
+  const epgInfo = c.epg_count ? `${c.epg_count} pořadů z ${(c.epg_source || '').split('/')[2] || '?'}` + (c.epg_how === 'manual' ? ' (ručně)' : ' (automaticky)') : 'žádný';
+  return el('div', {className: 'detail'}, el('div', {className: 'grid'},
+    el('label', {}, 'Název', name), el('label', {}, 'Skupina', group),
+    el('details', {className: 'tech'}, el('summary', {textContent: 'Technické údaje'}),
+      el('label', {className: 'wide', style: 'margin:8px 0'}, 'Vlastní zdroj programu (adresa XMLTV#id kanálu)', epgIn),
+      el('div', {className: 'facts'},
+      el('span', {textContent: 'Program'}), el('span', {textContent: epgInfo}),
+      el('span', {textContent: 'Kontrola'}), el('span', {textContent: `${fmt(c.last_check)}, naposledy hrál ${fmt(c.last_ok)}` + (c.detail ? ` · ${c.detail}` : '')}),
+      el('span', {textContent: 'Zdroj'}), el('span', {textContent: [c.source || 'ruční import', c.tvg_id].filter(Boolean).join(' · ')}),
+      el('span', {textContent: 'Stream'}), el('code', {textContent: c.url}))),
+    el('div', {className: 'row-acts'}, save, play, about, del, msg)));
+}
+
+// --- akce ---
+async function patch(c, body, note, reload = false){
+  await api('/api/channels/' + c.id, {method: 'PATCH', body});
+  if (reload) await load(); else { Object.assign(c, body); render(); }
+  toast(note);
+}
+async function saveOrder(){
+  const items = [];
+  document.querySelectorAll('#groups section.group').forEach(sec => {
+    sec.querySelectorAll('.ch').forEach(ch => items.push({id: Number(ch.dataset.id), group: sec.dataset.group}));
+  });
+  await api('/api/channels/order', {body: {items}});
+  const byId = Object.fromEntries(CH.map(c => [c.id, c]));
+  CH = items.map(it => Object.assign(byId[it.id], {group: it.group}));
+  extraGroups = extraGroups.filter(g => !CH.some(c => c.group === g));
+  render(); toast('Pořadí uloženo');
+}
+function renameGroup(btn, old){
+  const inp = el('input', {className: 'gname', value: old});
+  btn.replaceWith(inp); inp.focus(); inp.select();
+  let done = false;
+  const finish = async ok => {
+    if (done) return; done = true;
+    const nw = inp.value.trim();
+    if (ok && nw && nw !== old){
+      if (CH.some(c => c.group === old)) await api('/api/groups/rename', {body: {old, new: nw}});
+      CH.forEach(c => { if (c.group === old) c.group = nw; });
+      extraGroups = extraGroups.map(g => g === old ? nw : g);
+      toast('Skupina přejmenována');
+    }
+    render();
+  };
+  inp.onkeydown = e => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); };
+  inp.onblur = () => finish(true);
+}
+$('newGroup').onclick = () => {
+  let n = 'Nová skupina', i = 2; while (groupsInOrder().includes(n)) n = 'Nová skupina ' + i++;
+  extraGroups.push(n); render();
+  const sec = [...document.querySelectorAll('section.group')].pop(); sec.scrollIntoView({behavior: 'smooth', block: 'center'});
+  sec.querySelector('.gname').click();
+};
+$('check').onclick = async () => {
+  $('check').disabled = true; $('check').textContent = 'Kontroluji…';
+  try { await api('/api/check', {method: 'POST'}); } catch(e){}
+  const poll = setInterval(async () => {
+    const s = await api('/api/status');
+    if (!s.running){ clearInterval(poll); await load(); $('check').disabled = false; $('check').textContent = 'Zkontrolovat streamy'; toast('Kontrola hotová'); }
+  }, 3000);
+};
+function copy(t){ navigator.clipboard?.writeText(t).then(() => toast('Adresa zkopírována'), () => toast(t)); }
+$('q').addEventListener('input', render);
+$('problems').addEventListener('change', render);
+
+
+async function load(){ CH = await api('/api/channels?all=true'); render(); }
+load();
+</script>
+</body>
+</html>

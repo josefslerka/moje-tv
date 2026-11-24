@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Záznamy · Moje TV</title>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<script src="/static/recordings.js?v=20261116-1"></script>
+<style>
+.page{max-width:1080px;margin:0 auto;padding:28px 24px 60px}
+h1{font-size:26px;margin:0 0 6px}
+.hint{color:var(--muted);font-size:13px}
+#storage{margin-bottom:24px}
+.recording{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:16px}
+.recording h2{font-size:18px;margin:0 0 5px}
+.recording .meta{font-size:13px;color:var(--muted)}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.notice{color:var(--focus);font-size:13px;margin:10px 0}
+.live{color:var(--focus)}
+#error{color:var(--focus)}
+dialog{width:min(1040px,calc(100% - 32px));max-height:95dvh;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text)}
+dialog::backdrop{background:rgba(0,0,0,.75)}
+dialog header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+dialog video{display:block;width:100%;max-height:75dvh;background:#000}
+dialog video::cue{background:rgba(0,0,0,.8);color:#fff}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<main class="page">
+  <h1>Záznamy</h1>
+  <p class="hint">Nahrávání spustíš tlačítkem Record v přehrávači. Text je k dispozici jako přepis TXT i časované titulky SRT.</p>
+  <p class="hint" id="storage"></p>
+  <p id="error" role="alert"></p>
+  <div id="items"></div>
+</main>
+<dialog id="preview" aria-labelledby="previewTitle">
+  <header><b id="previewTitle"></b><button class="btn" id="closePreview" type="button">Zavřít</button></header>
+  <video id="video" controls playsinline></video>
+</dialog>
+<script>
+const $ = id => document.getElementById(id);
+const {request, clock, gigabytes} = TVRecordings;
+const modes = {asr:'Původní jazyk · lokální přepis', broadcaster:'Původní titulky vysílatele',
+  'translate-cs':'Čeština · lokálně', 'translate-cs-api':'Čeština · Gemini, placené API'};
+const states = {recording:'● Nahrávám', finishing:'Dokončuji záznam…', ready:'Uloženo', interrupted:'Přerušeno', error:'Záznam se přerušil'};
+let signature = '', refreshing = false;
+const element = (tag, props, ...children) => { const item = Object.assign(document.createElement(tag), props); item.append(...children); return item; };
+function showPreview(item){
+  const video = $('video');
+  const translated = ['translate-cs','translate-cs-api'].includes(item.text_mode);
+  video.replaceChildren();
+  video.src = '/api/recordings/' + item.id + '/video';
+  if (item.has_text) video.append(element('track', {kind:'captions', label:translated ? 'Čeština' : 'Původní text',
+    srclang:translated ? 'cs' : 'und', src:'/api/recordings/' + item.id + '/text.vtt', default:true}));
+  $('previewTitle').textContent = item.channel_name;
+  $('preview').showModal();
+  video.load();
+}
+function card(item){
+  const active = ['recording','finishing'].includes(item.state);
+  const date = new Date(item.started_at).toLocaleString('cs-CZ', {dateStyle:'medium', timeStyle:'short'});
+  const size = item.size_bytes >= 1024 ** 3 ? gigabytes(item.size_bytes)
+    : (item.size_bytes / 1024 ** 2).toLocaleString('cs-CZ', {maximumFractionDigits:1}) + ' MB';
+  const state = element('span', {className:active ? 'live' : '', textContent:states[item.state]});
+  const meta = element('div', {className:'meta'}, date + ' · ' + clock(item.duration) + ' · ' + size + ' · ', state);
+  const result = element('article', {className:'recording'}, element('h2', {textContent:item.channel_name}), meta);
+  if (item.text_mode) result.append(element('div', {className:'hint', textContent:modes[item.text_mode]}));
+  for (const message of [item.error, item.text_error]) if (message) result.append(element('p', {className:'notice', textContent:message}));
+  if (item.text_mode && !active && !item.has_text && !item.text_error){
+    result.append(element('p', {className:'hint', textContent:'V záznamu nebyla rozpoznána řeč.'}));
+  }
+  const actions = element('div', {className:'actions'});
+  if (active){
+    actions.append(element('button', {className:'btn danger', type:'button', textContent:'Zastavit nahrávání',
+      disabled:item.state === 'finishing', onclick:() => change('/' + item.id + '/stop', 'POST')}));
+  }
+  if (item.has_video){
+    actions.append(element('button', {className:'btn primary', type:'button', textContent:'Přehrát', onclick:() => showPreview(item)}));
+    actions.append(element('a', {className:'btn', href:'/api/recordings/' + item.id + '/video?download=true', textContent:'Stáhnout MP4'}));
+  }
+  if (item.has_text){
+    for (const [extension, label] of [['txt','Text TXT'],['srt','Titulky SRT']]){
+      actions.append(element('a', {className:'btn', href:'/api/recordings/' + item.id + '/text.' + extension, textContent:label}));
+    }
+  }
+  if (!active) actions.append(element('button', {className:'btn danger', type:'button', textContent:'Smazat', onclick:() => {
+    if (confirm('Smazat tento záznam včetně videa a textu?')) change('/' + item.id, 'DELETE');
+  }}));
+  result.append(actions);
+  return result;
+}
+async function change(path, method){
+  try { await request(path, {method}); await refresh(); }
+  catch(error){ $('error').textContent = error.message; }
+}
+async function refresh(){
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const data = await request();
+    $('error').textContent = '';
+    $('storage').textContent = 'Volné místo ' + gigabytes(data.storage.free_bytes) + ' · Při poklesu pod '
+      + gigabytes(data.storage.reserve_bytes) + ' se nahrávání ukončí.';
+    $('storage').title = data.storage.folder;
+    const next = JSON.stringify(data.recordings);
+    if (signature !== next){
+      signature = next;
+      $('items').replaceChildren(...data.recordings.map(card));
+      if (!data.recordings.length) $('items').append(element('p', {className:'hint', textContent:'Zatím tu nejsou žádné záznamy.'}));
+    }
+  } catch(error){ $('error').textContent = error.message; }
+  finally { refreshing = false; }
+}
+$('closePreview').onclick = () => $('preview').close();
+$('preview').addEventListener('close', () => { $('video').pause(); $('video').removeAttribute('src'); $('video').load(); });
+refresh();
+setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 3000);
+</script>
+</body>
+</html>

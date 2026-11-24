@@ -1,0 +1,17 @@
+{
+  "backend": "mlx",
+  "model": "large-v3-turbo",
+  "model_directory": "data/models/whisper-large-v3-turbo",
+  "python": ".venv/bin/python",
+  "pythonpath": [".venv/lib/python3.11/site-packages"],
+  "language": "auto",
+  "translation": false,
+  "chunk_seconds": 2,
+  "overlap_seconds": 1,
+  "ffmpeg": "/opt/homebrew/bin/ffmpeg",
+  "translator": {
+    "model": "Hy-MT2-1.8B-8bit",
+    "model_directory": "data/models/Hy-MT2-1.8B-8bit",
+    "pythonpath": [".venv/lib/python3.11/site-packages"]
+  }
+}

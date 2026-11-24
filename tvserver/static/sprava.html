@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Přidat kanály · Moje TV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<style>
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit}
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:24px;padding:20px 24px}
+.results{display:flex;flex-direction:column;min-height:0}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px}
+.filters input[type=search],.filters select{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--control)}
+.row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.row2 select{max-width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--control);font-size:13px}
+.chip{padding:6px 11px;border-radius:7px;border:1px solid transparent;background:var(--chip);cursor:pointer;font-size:13px}
+.chip:hover{background:var(--hover)}
+.chip.on{background:var(--selected);border-color:var(--selected-line);color:var(--text)}
+.row2 label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-left:auto}
+.count{font-size:13px;color:var(--muted);margin-bottom:6px}
+#list{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.item{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.item:hover{background:var(--hover)}
+.item.sel{background:var(--selected);box-shadow:inset 3px 0 var(--accent)}
+.logo{width:48px;height:32px;object-fit:contain}
+span.logo{display:block;border-radius:6px;background:var(--line)}
+.item .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .mt{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--chip);color:var(--muted);margin-right:4px;font-weight:500}
+.badge.epg{background:rgba(46,125,50,.14);color:var(--ok)}
+.badge.rs{background:rgba(237,184,91,.12);color:var(--warn)}
+.inlist{font-size:13px;color:var(--ok);white-space:nowrap}
+.more{display:block;margin:12px auto}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+
+.side{display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+.tv{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:3px;overflow:hidden}
+.tv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.tv .idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:20px;pointer-events:none}
+.tv .idle[hidden]{display:none}
+.pv-name{font-size:18px;font-weight:600;margin:12px 0 2px}
+.pv-meta{font-size:13px;color:var(--muted)}
+.pv-status{font-size:13px;margin:8px 0}
+.pv-status.ok{color:var(--ok)}.pv-status.err{color:var(--focus)}
+.form{display:grid;gap:8px;margin-top:10px}
+.form label{font-size:12px;color:var(--muted);display:grid;gap:4px}
+.form input,.form select{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--control);width:100%}
+.actions{display:flex;gap:8px;margin-top:4px}
+.msg{font-size:13px;color:var(--muted);min-height:1.2em}
+.msg.err{color:var(--focus)}.msg.ok{color:var(--ok)}
+@media (max-width:980px){
+  body{display:block}
+  .wrap{grid-template-columns:1fr;padding:16px}
+  .filters{grid-template-columns:1fr 1fr}
+  .filters input[type=search]{grid-column:1/-1}
+  #list{max-height:none}
+  .side{order:-1}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<div class="wrap">
+  <section class="results">
+    <div class="filters">
+      <input id="q" type="search" placeholder="Hledat kanál, třeba Bloomberg nebo NASA…" autocomplete="off">
+      <select id="country" aria-label="Země" title="Počet kanálů po použití ostatních filtrů"><option value="">Všechny země</option></select>
+      <select id="category" aria-label="Kategorie" title="Počet kanálů po použití ostatních filtrů"><option value="">Všechny kategorie</option></select>
+      <select id="language" aria-label="Jazyk" title="Počet kanálů po použití ostatních filtrů"><option value="">Všechny jazyky</option></select>
+    </div>
+    <div class="row2" id="chips">
+      <select id="source" aria-label="Zdroj" title="Zdroj kanálů; počty se řídí ostatními filtry"><option value="">Všechny zdroje</option></select>
+      <button class="chip" data-f='{"source":"Doporučené"}' type="button" title="Kanály vybrané a ověřené dřív">★ Doporučené</button>
+      <button class="chip" data-f='{"category":"news","language":"eng"}' type="button">Zprávy anglicky</button>
+      <button class="chip" data-f='{"language":"ces"}' type="button">Česky</button>
+      <button class="chip" data-f='{"language":"slk"}' type="button">Slovensky</button>
+      <button class="chip" data-f='{"category":"documentary"}' type="button">Dokumenty</button>
+      <button class="chip" data-f='{"category":"science"}' type="button">Věda</button>
+      <button class="chip" data-f='{"category":"music"}' type="button">Hudba</button>
+      <button class="chip" data-f='{"category":"business"}' type="button">Byznys</button>
+      <label><input type="checkbox" id="epgOnly"> Jen s programem</label>
+      <select id="restreams" title="Restreamy: cizí servery, které přeposílají volně vysílané kanály jiných stanic">
+        <option value="">Bez restreamů</option><option value="1">I restreamy</option><option value="only">Jen restreamy</option>
+      </select>
+    </div>
+    <div class="count" id="count" aria-live="polite" title="Kanál s více streamy se počítá jednou. Čísla v nabídkách platí při použití ostatních filtrů."></div>
+    <div id="list"></div>
+  </section>
+  <aside class="side">
+    <div class="card">
+      <div class="tv"><video id="v" controls playsinline muted></video><div class="idle" id="idle">Vyberte kanál ze seznamu.<br>Pustí se tady na zkoušku.</div></div>
+      <div id="pv" hidden>
+        <div class="pv-name" id="pvName"></div>
+        <div class="pv-meta" id="pvMeta"></div>
+        <div class="pv-status" id="pvStatus"></div>
+        <div class="form" id="pvForm">
+          <label>Stream <select id="pvStream"></select></label>
+          <label>Název <input id="pvTitle"></label>
+          <label>Skupina <input id="pvGroup" list="groups" placeholder="např. Zprávy"></label>
+          <div class="actions"><button class="btn primary" id="pvAdd" type="button">Přidat do mých kanálů</button><button class="btn danger" id="pvRemove" type="button" hidden>Odebrat</button></div>
+          <div class="msg" id="pvMsg"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Vlastní odkaz</h2>
+      <div class="form">
+        <label>Adresa streamu (.m3u8) <input id="cUrl" type="url" placeholder="https://…/playlist.m3u8"></label>
+        <label>Název <input id="cName"></label>
+        <label>Skupina <input id="cGroup" list="groups" placeholder="Vlastní"></label>
+        <div class="actions"><button class="btn" id="cTry" type="button">Vyzkoušet</button><button class="btn primary" id="cAdd" type="button">Přidat</button></div>
+        <div class="msg" id="cMsg"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Importovat seznam M3U</h2>
+      <div class="form">
+        <label>Adresa seznamu <input id="iUrl" type="url" placeholder="https://…/seznam.m3u"></label>
+        <div class="actions"><button class="btn" id="iGo" type="button">Načíst do katalogu</button></div>
+        <div class="msg" id="iMsg"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+<datalist id="groups"></datalist>
+<script>
+const $ = id => document.getElementById(id);
+const v = $('v');
+let hls = null, page = 0, items = [], sel = null, timer = null, groups = [];
+let searchVersion = 0, searchController = null, loading = false;
+const PAGE = 60;
+const api = async (path, opt) => {
+  const r = await fetch(path, opt && opt.body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, ...opt, body: JSON.stringify(opt.body)} : opt);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || ('Chyba ' + r.status));
+  return data;
+};
+function msg(id, t, cls){ $(id).textContent = t; $(id).className = 'msg' + (cls ? ' ' + cls : ''); }
+function logo(src){
+  if (!src) return Object.assign(document.createElement('span'), {className: 'logo'});
+  const im = new Image(); im.src = src; im.alt = ''; im.loading = 'lazy'; im.className = 'logo';
+  im.onerror = () => im.replaceWith(Object.assign(document.createElement('span'), {className: 'logo'}));
+  return im;
+}
+
+// --- přehrávání náhledu ---
+function preview(url, isProxy = false){
+  if (hls){ hls.destroy(); hls = null; }
+  $('idle').hidden = !!url; if (!url){ v.removeAttribute('src'); v.load(); return; }
+  if (window.Hls && Hls.isSupported()){
+    hls = new Hls(); hls.loadSource(isProxy ? isProxy : url); hls.attachMedia(v);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+    hls.on(Hls.Events.ERROR, async (e, d) => {
+      if (!d.fatal) return;
+      if (!isProxy && d.type === Hls.ErrorTypes.NETWORK_ERROR){
+        try {
+          const r = await fetch('/api/proxy-link?url=' + encodeURIComponent(url));
+          if (r.ok){ preview(url, (await r.json()).url); return; }
+        } catch(err){}
+      }
+      setStatus('Server stream ověřil, ale prohlížeč ho nepřehraje. Ve VLC a na Apple TV pojede.', 'err');
+    });
+  } else { v.src = url; v.play().catch(() => {}); }
+}
+function setStatus(t, cls){ $('pvStatus').textContent = t; $('pvStatus').className = 'pv-status' + (cls ? ' ' + cls : ''); }
+
+// --- filtry ---
+const facetLabels = {country: new Map(), category: new Map(), language: new Map(), source: new Map()};
+function setFilter(id, value){
+  const select = $(id);
+  if (value && ![...select.options].some(o => o.value === value))
+    select.append(new Option(facetLabels[id].get(value) || value, value));
+  select.value = value;
+}
+function renderFacets(f){
+  for (const [id, key, empty] of [['country', 'countries', 'Všechny země'], ['category', 'categories', 'Všechny kategorie'], ['language', 'languages', 'Všechny jazyky'], ['source', 'sources', 'Všechny zdroje']]){
+    const select = $(id), selected = select.value;
+    select.replaceChildren(new Option(empty, ''));
+    const rows = id === 'category' ? f[key] : [...f[key]].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, 'cs'));
+    for (const r of rows){
+      const label = [r.flag, r.name || r.id].filter(Boolean).join(' ');
+      facetLabels[id].set(r.id, label);
+      select.append(new Option(`${label} (${r.count.toLocaleString('cs-CZ')})`, r.id));
+    }
+    setFilter(id, selected);
+  }
+}
+async function loadGroups(){
+  groups = await api('/api/groups');
+  $('groups').innerHTML = ''; groups.forEach(g => $('groups').append(Object.assign(document.createElement('option'), {value: g})));
+}
+function params(targetPage = 0){
+  return new URLSearchParams({q: $('q').value.trim(), country: $('country').value, category: $('category').value,
+    language: $('language').value, epg_only: $('epgOnly').checked, restreams: $('restreams').value !== '', restreams_only: $('restreams').value === 'only', source: $('source').value,
+    limit: PAGE, offset: targetPage * PAGE});
+}
+function syncChips(){
+  const current = Object.fromEntries(params());
+  document.querySelectorAll('.chip').forEach(c => {
+    const on = Object.entries(JSON.parse(c.dataset.f)).every(([key, value]) => current[key] === value);
+    c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on));
+  });
+}
+
+// --- výsledky ---
+async function search(reset = true){
+  if (!reset && loading) return;
+  clearTimeout(timer);
+  const version = ++searchVersion;
+  searchController?.abort(); searchController = new AbortController();
+  const options = {signal: searchController.signal}, targetPage = reset ? 0 : page + 1;
+  const query = params(targetPage);
+  loading = true; $('list').setAttribute('aria-busy', 'true');
+  if (reset){ page = 0; items = []; $('list').replaceChildren(); $('count').textContent = 'Hledám…'; }
+  else { const more = $('list').querySelector('.more'); if (more) more.disabled = true; }
+  try {
+    const [r, f] = await Promise.all([api('/api/catalog?' + query, options),
+      reset ? api('/api/catalog/facets?' + query, options) : Promise.resolve(null)]);
+    if (version !== searchVersion) return;
+    if (f) renderFacets(f);
+    page = targetPage;
+    const noun = r.total === 1 ? 'kanál' : r.total >= 2 && r.total <= 4 ? 'kanály' : 'kanálů';
+    $('count').textContent = `${r.total.toLocaleString('cs-CZ')} ${noun}`;
+    items.push(...r.items);
+    $('list').querySelector('.more')?.remove();
+    if (!items.length){
+      $('list').innerHTML = `<div class="empty">${f?.catalog_total === 0 ? 'Katalog je prázdný. Obnovíte ho v Nastavení.' : 'Nic nenalezeno. Zkuste jiný filtr.'}</div>`;
+      return;
+    }
+    r.items.forEach(it => $('list').append(row(it)));
+    if (items.length < r.total){
+      const b = Object.assign(document.createElement('button'), {className: 'btn more', type: 'button', textContent: 'Načíst další'});
+      b.onclick = () => search(false); $('list').append(b);
+    }
+  } catch(e){
+    if (version !== searchVersion || e.name === 'AbortError') return;
+    $('count').textContent = 'Kanály se nepodařilo načíst.';
+    if (reset) $('list').append(Object.assign(document.createElement('div'), {className: 'empty', textContent: e.message}));
+    else { const more = $('list').querySelector('.more'); if (more) more.disabled = false; }
+  } finally {
+    if (version === searchVersion){ loading = false; $('list').setAttribute('aria-busy', 'false'); }
+  }
+}
+function row(it){
+  const d = document.createElement('div'); d.className = 'item' + (sel && sel.key === it.key ? ' sel' : ''); d.dataset.key = it.key;
+  const mid = document.createElement('div'); mid.style.minWidth = '0';
+  const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = it.name;
+  const mt = document.createElement('div'); mt.className = 'mt';
+  if (it.restream) mt.append(Object.assign(document.createElement('span'), {className: 'badge rs', textContent: 'Restream', title: 'Stream jde přes cizí server, ne přímo od stanice'}));
+  if (it.has_epg) mt.append(Object.assign(document.createElement('span'), {className: 'badge epg', textContent: 'Program'}));
+  if (it.streams.length > 1) mt.append(Object.assign(document.createElement('span'), {className: 'badge', textContent: it.streams.length + ' streamy'}));
+  mt.append([it.flag + ' ' + (it.country_name || ''), it.categories.join(', '), it.languages.slice(0, 2).join(', ')].filter(s => s.trim()).join(' · '));
+  mid.append(nm, mt);
+  const right = document.createElement('div');
+  if (it.channel_id) right.append(Object.assign(document.createElement('span'), {className: 'inlist', textContent: '✓ V seznamu'}));
+  d.append(logo(it.logo), mid, right);
+  d.onclick = () => select(it);
+  return d;
+}
+function markSel(){ document.querySelectorAll('.item').forEach(e => e.classList.toggle('sel', sel && e.dataset.key === sel.key)); }
+
+// --- výběr kanálu: ověření streamů a náhled ---
+async function select(it){
+  sel = it; markSel();
+  $('pv').hidden = false; $('pvName').textContent = it.name;
+  $('pvMeta').textContent = [it.flag + ' ' + it.country_name, it.categories.join(', '), it.languages.join(', ')].filter(s => s.trim()).join(' · ');
+  $('pvTitle').value = it.name; $('pvGroup').value = it.group || (it.restream ? 'Restreamy' : (it.categories[0] || ''));
+  $('pvAdd').hidden = !!it.channel_id; $('pvRemove').hidden = !it.channel_id; $('pvAdd').disabled = true;
+  msg('pvMsg', it.channel_id ? 'Kanál už máte v seznamu.' : '');
+  $('pvStream').innerHTML = ''; preview(null); $('idle').hidden = false; $('idle').textContent = 'Zkouším streamy…';
+  setStatus(it.streams.length > 1 ? `Zkouším ${it.streams.length} streamy…` : 'Zkouším stream…');
+  let res = [];
+  try { res = await api('/api/resolve', {body: {urls: it.streams.map(s => s.url)}}); } catch(e){ setStatus(e.message, 'err'); return; }
+  if (sel !== it) return;
+  const good = res.filter(r => r.ok);
+  for (const r of res){
+    const s = it.streams.find(x => x.url === r.url);
+    const o = document.createElement('option'); o.value = r.url;
+    o.textContent = `${r.ok ? '✓' : '✗'} ${s.host}${s.quality ? ' · ' + s.quality : ''}${s.restream ? ' · restream' : ''}${r.ok ? '' : ' · ' + r.detail}`;
+    o.disabled = !r.ok; $('pvStream').append(o);
+  }
+  if (!good.length){ setStatus('Žádný stream teď nehraje. Kanál je nejspíš vypnutý nebo blokovaný pro Česko.', 'err'); $('idle').textContent = 'Nehraje'; return; }
+  const firstRs = it.streams.find(x => x.url === good[0].url)?.restream;
+  if (firstRs && !it.group) $('pvGroup').value = 'Restreamy';
+  setStatus(`Hraje přes ${new URL(good[0].url).hostname}` + (firstRs ? ' (restream)' : '') + (good.length > 1 ? `, funkčních streamů: ${good.length}` : ''), 'ok');
+  $('pvAdd').disabled = false; preview(good[0].url);
+}
+$('pvStream').onchange = () => {
+  preview($('pvStream').value);
+  const s = sel && sel.streams.find(x => x.url === $('pvStream').value);
+  if (s && s.restream && !sel.group) $('pvGroup').value = 'Restreamy';
+};
+$('pvAdd').onclick = async () => {
+  if (!sel) return; $('pvAdd').disabled = true; msg('pvMsg', 'Přidávám…');
+  try {
+    const r = await api('/api/channels', {body: {url: $('pvStream').value, name: $('pvTitle').value, group: $('pvGroup').value, skip_test: true}});
+    sel.channel_id = r.id; $('pvAdd').hidden = true; $('pvRemove').hidden = false;
+    msg('pvMsg', 'Přidáno. Program se stáhne do minuty.', 'ok');
+    document.querySelector(`.item[data-key="${CSS.escape(sel.key)}"]`)?.replaceWith(row(sel)); markSel(); loadGroups();
+  } catch(e){ msg('pvMsg', e.message, 'err'); $('pvAdd').disabled = false; }
+};
+$('pvRemove').onclick = async () => {
+  if (!sel || !sel.channel_id) return;
+  try {
+    await api('/api/channels/' + sel.channel_id, {method: 'DELETE'});
+    sel.channel_id = null; $('pvRemove').hidden = true; $('pvAdd').hidden = false; $('pvAdd').disabled = !$('pvStream').value;
+    msg('pvMsg', 'Odebráno.', 'ok');
+    document.querySelector(`.item[data-key="${CSS.escape(sel.key)}"]`)?.replaceWith(row(sel)); markSel();
+  } catch(e){ msg('pvMsg', e.message, 'err'); }
+};
+
+// --- vlastní odkaz a import ---
+$('cTry').onclick = async () => {
+  const url = $('cUrl').value.trim(); if (!url) return;
+  sel = null; markSel(); $('pv').hidden = true; msg('cMsg', 'Zkouším…');
+  try { const r = await api('/api/test', {body: {url}}); msg('cMsg', r.ok ? 'Stream hraje.' : 'Stream nehraje: ' + r.detail, r.ok ? 'ok' : 'err'); if (r.ok) preview(url); }
+  catch(e){ msg('cMsg', e.message, 'err'); }
+};
+$('cAdd').onclick = async () => {
+  msg('cMsg', 'Ověřuji a přidávám…');
+  try { await api('/api/channels', {body: {url: $('cUrl').value.trim(), name: $('cName').value.trim(), group: $('cGroup').value.trim()}}); msg('cMsg', 'Přidáno.', 'ok'); loadGroups(); }
+  catch(e){ msg('cMsg', e.message, 'err'); }
+};
+$('iGo').onclick = async () => {
+  msg('iMsg', 'Načítám…');
+  try {
+    const r = await api('/api/catalog/import', {body: {url: $('iUrl').value.trim()}});
+    msg('iMsg', `Načteno ${r.imported} streamů` + (r.skipped ? `, ${r.skipped} vynecháno kvůli blokovaným zdrojům` : '') + '. Najdete je ve výsledcích.', 'ok');
+    search();
+  } catch(e){ msg('iMsg', e.message, 'err'); }
+};
+// --- ovládání filtrů ---
+$('q').addEventListener('input', () => {
+  clearTimeout(timer); searchController?.abort(); ++searchVersion; loading = true;
+  $('list').setAttribute('aria-busy', 'true'); $('count').textContent = 'Hledám…';
+  timer = setTimeout(() => search(), 250);
+});
+['country', 'category', 'language', 'source', 'epgOnly', 'restreams'].forEach(id => $(id).addEventListener('change', () => { syncChips(); search(); }));
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+  const on = !c.classList.contains('on');
+  const f = JSON.parse(c.dataset.f);
+  for (const [key, value] of Object.entries(f)){
+    setFilter(key, on ? value : '');
+  }
+  if (on && f.source && !$('restreams').value) $('restreams').value = '1';
+  syncChips(); search();
+});
+
+{
+  const initial = new URLSearchParams(location.search);
+  if (initial.get('q')) $('q').value = initial.get('q');
+  for (const id of ['country', 'category', 'language', 'source']) if (initial.get(id)) setFilter(id, initial.get(id));
+  $('epgOnly').checked = initial.get('epg_only') === 'true';
+  $('restreams').value = initial.get('restreams_only') === 'true' ? 'only' :
+    (initial.has('restreams') ? ['true', '1'].includes(initial.get('restreams')) : !!$('source').value) ? '1' : '';
+}
+syncChips(); search();
+loadGroups();
+</script>
+</body>
+</html>

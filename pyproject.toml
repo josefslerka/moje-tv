@@ -1,0 +1,40 @@
+[project]
+name = "tvserver"
+version = "0.1.0"
+description = "Osobní IPTV server: seznam kanálů, kontrola streamů, M3U pro Apple TV a webový přehrávač."
+readme = "README.md"
+license = "MIT"
+authors = [{name = "Josef Šlerka"}]
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "httpx>=0.27",
+  "markdown-it-py>=3",
+  "yt-dlp[default]>=2025.10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+ai = [
+  "mlx-whisper==0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "mlx-lm==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "huggingface-hub>=0.36",
+]
+
+[project.urls]
+Repository = "https://github.com/josefslerka/moje-tv"
+Issues = "https://github.com/josefslerka/moje-tv/issues"
+
+[project.scripts]
+tvserver = "tvserver.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["tvserver*"]
+
+[tool.setuptools.package-data]
+tvserver = ["static/*.html", "static/*.css", "static/*.js"]

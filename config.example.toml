@@ -1,0 +1,36 @@
+# Copy this file to config.toml. Paths are relative to that file.
+# For Apple TV / AirPlay on your trusted LAN, change host to "0.0.0.0".
+# The server has no authentication; do not expose it to the public Internet.
+host = "127.0.0.1"
+port = 8090
+database = "data/tv.db"
+caption_runtime = "data/caption_runtime.json"
+
+check_interval_hours = 24
+hide_after_failures = 2
+repair_sources = ["https://iptv-org.github.io/iptv/index.m3u"]
+blocked_hosts = []
+restream_hosts = []
+block_ip_hosts = true
+
+# Optional public catalog. No personal or curated channel list is bundled.
+catalog_api = "https://iptv-org.github.io/api"
+catalog_interval_hours = 168
+catalog_playlists = []
+# Additional source example:
+# catalog_playlists = [
+#   { name = "My source", url = "https://example.org/playlist.m3u" },
+# ]
+
+epg_interval_hours = 12
+epg_hours_ahead = 48
+epg_guides_index = "https://iptv-org.github.io/api/guides.json"
+epg_mjh_feeds = ["PlutoTV/us", "Plex/us", "SamsungTVPlus/us", "Plex/gb", "Roku/all"]
+
+wiki_dir = "data/wiki"
+obsidian_vault = ""
+obsidian_prefix = "moje-tv/wiki"
+wiki_interval_hours = 24
+
+# Optional manual mapping: "Channel.id" = "https://.../epg.xml.gz#xmltv-id".
+[epg_map]

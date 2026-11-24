@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Nastavení · Moje TV</title>
+<link rel="stylesheet" href="/static/common.css?v=20261106-dark-3">
+<script src="/static/common.js"></script>
+<style>
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit}
+header.top{position:sticky;top:0}
+.page{max-width:1080px;margin:0 auto;padding:28px 24px 60px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.card{min-width:0;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px}
+.card p{margin:0 0 10px;color:var(--muted);font-size:14px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:14px;margin-bottom:12px}
+.kv span:nth-child(odd){color:var(--muted)}
+.urls{display:grid;gap:6px}
+.url{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;font-size:14px}
+.url span{color:var(--muted)}
+.url code{padding:5px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--line);word-break:break-all;font-size:13px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.log{font-size:13px;display:grid;gap:4px;max-height:260px;overflow-y:auto}
+.log div{display:grid;grid-template-columns:120px 1fr;gap:10px}
+.log time{color:var(--muted);font-variant-numeric:tabular-nums}
+.hosts{font-size:13px;color:var(--muted)}
+.hosts code{font-size:12px;color:var(--text)}
+.usage-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.usage-head h2{margin:0}
+.usage-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.usage-total{padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.usage-total span,.usage-total small{display:block;color:var(--muted);font-size:12px}
+.usage-total strong{display:block;font-size:23px;font-weight:650;font-variant-numeric:tabular-nums;margin:4px 0;overflow-wrap:anywhere}
+.usage-table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.usage-table th,.usage-table td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}
+.usage-table th{font-weight:500;color:var(--muted)}
+.usage-table th:not(:first-child),.usage-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.usage-note{font-size:12px!important;margin-bottom:0!important}
+.usage-warning{color:var(--focus)!important}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--panel);padding:8px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (max-width:760px){
+  .page{grid-template-columns:1fr;padding:16px}
+  .url{grid-template-columns:1fr auto}
+  .url span{grid-column:1/-1}
+  .kv{grid-template-columns:1fr}
+  .usage-totals{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Moje TV</a>
+  <nav class="nav"><a href="/">Přehrávač</a><a href="/sprava">Přidat kanály</a><a href="/moje">Moje kanály</a><a href="/zaznamy">Záznamy</a><a href="/wiki">Wiki</a><a href="/nastaveni">Nastavení</a></nav>
+</header>
+<main class="page">
+  <section class="card wide" aria-labelledby="usageHeading">
+    <div class="usage-head"><h2 id="usageHeading">Náklady na placené titulky</h2><button class="btn sm" id="usageRefresh" type="button">Obnovit náklady</button></div>
+    <div class="usage-totals">
+      <div class="usage-total"><span>Dnes</span><strong id="usageToday">—</strong><small id="usageTodayCount">Načítám…</small></div>
+      <div class="usage-total"><span>Tento měsíc</span><strong id="usageMonth">—</strong><small id="usageMonthCount"></small></div>
+      <div class="usage-total"><span>Celkem v evidenci</span><strong id="usageTotal">—</strong><small id="usageTotalCount"></small></div>
+    </div>
+    <p id="usageState" role="status"></p>
+    <p id="usageUnknown" class="usage-warning" hidden></p>
+    <p id="usageError" class="usage-warning" hidden>Náklady se nepodařilo obnovit. Zobrazené údaje jsou z posledního úspěšného načtení.</p>
+    <table class="usage-table" id="usageTable" hidden>
+      <thead><tr><th scope="col">Kanál</th><th scope="col">API požadavků</th><th scope="col">Známá cena</th></tr></thead>
+      <tbody id="usageChannels"></tbody>
+    </table>
+    <p class="usage-note" id="usageSince">Evidence placených překladů v této aplikaci.</p>
+    <p class="usage-note">Částky hlásí OpenRouter v USD a nezahrnují poplatky za dobití kreditu. Bezplatné titulky API nevolají.</p>
+  </section>
+
+  <section class="card wide">
+    <h2>Připojení</h2>
+    <p>Tyhle adresy fungují na Apple TV, telefonu i v jiném počítači ve stejné Wi-Fi.</p>
+    <div class="urls" id="urls"></div>
+  </section>
+
+  <section class="card">
+    <h2>Kontrola streamů</h2>
+    <div class="kv" id="checkKv"></div>
+    <div class="acts"><button class="btn" id="checkBtn" type="button">Zkontrolovat teď</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Program</h2>
+    <div class="kv" id="epgKv"></div>
+    <div class="acts"><button class="btn" id="epgBtn" type="button">Stáhnout program teď</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Katalog kanálů</h2>
+    <div class="kv" id="catKv"></div>
+    <div class="acts"><button class="btn" id="catBtn" type="button">Obnovit katalog</button></div>
+    <p class="hosts" id="hosts" style="margin-top:12px"></p>
+  </section>
+
+  <section class="card">
+    <h2>Wiki o kanálech</h2>
+    <div class="kv" id="wikiKv"></div>
+    <div class="acts"><button class="btn" id="wikiBtn" type="button">Přegenerovat wiki</button><a class="btn" href="/wiki">Otevřít wiki</a><a class="btn" id="wikiLink" href="#">V Obsidianu</a></div>
+  </section>
+
+  <section class="card">
+    <h2>Zálohy</h2>
+    <p>Zálohy databáze kanálů a evidence nákladů. Obnova se dělá ručně podle README, aby se nic nepřepsalo omylem.</p>
+    <div class="log" id="backups"></div>
+    <div class="acts" style="margin-top:12px"><button class="btn" id="backupBtn" type="button">Vytvořit zálohu</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Poslední události</h2>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null)); return e; };
+const when = iso => iso ? new Date(iso).toLocaleString('cs-CZ', {day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'zatím ne';
+let toastT; function toast(t){ $('toast').textContent = t; $('toast').classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('show'), 1800); }
+function copy(t){ navigator.clipboard ? navigator.clipboard.writeText(t).then(() => toast('Zkopírováno'), () => toast(t)) : toast(t); }
+function kv(id, rows){ const box = $(id); box.innerHTML = ''; rows.forEach(([k, v]) => box.append(el('span', {textContent: k}), el('span', {textContent: v}))); }
+function urlRow(name, url){
+  const b = el('button', {className: 'btn sm', type: 'button', textContent: 'Kopírovat'}); b.onclick = () => copy(url);
+  let shown = url; try { shown = decodeURI(url); } catch(e){}
+  return el('div', {className: 'url'}, el('span', {textContent: name}), el('code', {textContent: shown}), b);
+}
+
+function usd(value){
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  if (value > 0 && value < .000001) return '< 0,000001 USD';
+  return value.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:6})+' USD';
+}
+let usageUpdated=0, usageBusy=false;
+function renderUsage(data){
+  if (!data){ $('usageError').hidden=false; return; }
+  const updated=Date.parse(data.updated_at);
+  if (updated < usageUpdated) return;
+  usageUpdated=updated; $('usageError').hidden=true;
+  for (const [key,id] of [['today','Today'],['month','Month'],['total','Total']]){
+    const stats=data[key];
+    $('usage'+id).textContent=usd(stats.known_cost_usd);
+    $('usage'+id+'Count').textContent='API požadavků: '+stats.requests.toLocaleString('cs-CZ');
+  }
+  const total=data.total;
+  $('usageState').textContent=total.requests ? 'Právě probíhá: '+total.pending_requests+' · Obnoveno '+when(data.updated_at)
+    : 'Zatím žádné placené požadavky.';
+  $('usageUnknown').hidden=!total.unknown_cost_requests;
+  $('usageUnknown').textContent='U '+total.unknown_cost_requests+' požadavků není cena k dispozici. Částky výše zahrnují pouze známé ceny.';
+  $('usageSince').textContent='Evidence od '+new Date(data.since).toLocaleString('cs-CZ',{timeZone:data.timezone})+'. Součty podle času v Praze.';
+  const rows=$('usageChannels'); rows.replaceChildren();
+  for (const channel of data.by_channel){
+    const price=usd(channel.known_cost_usd)+(channel.unknown_cost_requests ? ' + neznámá cena ('+channel.unknown_cost_requests+')' : '');
+    rows.append(el('tr',{},el('td',{textContent:channel.channel_name}),
+      el('td',{textContent:channel.requests.toLocaleString('cs-CZ')}),el('td',{textContent:price})));
+  }
+  $('usageTable').hidden=!data.by_channel.length;
+}
+async function refreshUsage(){
+  if (usageBusy) return;
+  usageBusy=true; $('usageRefresh').disabled=true;
+  try {
+    const response=await fetch('/api/captions/usage',{cache:'no-store'});
+    if (!response.ok) throw new Error('usage unavailable');
+    renderUsage(await response.json());
+  } catch(e){ $('usageError').hidden=false; }
+  finally { usageBusy=false; $('usageRefresh').disabled=false; }
+}
+
+async function load(){
+  const s = await (await fetch('/api/settings')).json();
+  renderUsage(s.caption_usage);
+  const u = $('urls'); u.innerHTML = '';
+  if (s.addresses.ip_url) u.append(urlRow('Web v síti', s.addresses.ip_url));
+  if (s.addresses.local_url) u.append(urlRow('Stálé jméno Macu', s.addresses.local_url));
+  s.playlists.forEach(p => u.append(urlRow('Playlist: ' + p.name, p.url)));
+  u.append(urlRow('Program (XMLTV)', s.epg_url));
+
+  const st = s.channels.by_status || {};
+  kv('checkKv', [['Naposledy', s.check.running ? 'právě běží…' : when(s.check.last)],
+                 ['Kanálů', `${s.channels.total}, v přehrávači ${s.channels.visible}`],
+                 ['Hraje / nehraje', `${st.ok || 0} / ${st.dead || 0}`]]);
+  $('checkBtn').disabled = s.check.running;
+  kv('epgKv', [['Naposledy', s.epg.running ? 'právě běží…' : when(s.epg.last)], ['Kanálů s programem', String(s.epg.with_epg)]]);
+  $('epgBtn').disabled = s.epg.running;
+  kv('catKv', [['Obnoven', s.catalog.running ? 'právě běží…' : when(s.catalog.last)],
+               ['Streamů', s.catalog.total.toLocaleString('cs-CZ')],
+               ['Z toho restreamy', s.catalog.restreams.toLocaleString('cs-CZ')],
+               ['★ Doporučené', String(s.catalog.recommended)]]);
+  $('catBtn').disabled = s.catalog.running;
+  $('hosts').innerHTML = '';
+  $('hosts').append('Blokované zdroje: ', ...s.catalog.blocked_hosts.flatMap((h, i) => [i ? ', ' : '', el('code', {textContent: h})]),
+                    el('br'), 'Restreamy: ', ...s.catalog.restream_hosts.flatMap((h, i) => [i ? ', ' : '', el('code', {textContent: h})]),
+                    el('br'), 'Mění se v souboru server/config.toml.');
+  kv('wikiKv', [['Naposledy', s.wiki.running ? 'právě běží…' : when(s.wiki.last)], ['Kanálů', String(s.wiki.pages)],
+                ['Wikidata k ověření', String(s.wiki.check)], ['Složka', s.wiki.dir.replace(/^\/Users\/[^/]+/, '~')]]);
+  $('wikiBtn').disabled = s.wiki.running; $('wikiLink').href = s.wiki.home;
+  const b = $('backups'); b.innerHTML = '';
+  if (!s.backups.length) b.append(el('div', {textContent: 'Zatím žádné zálohy.'}));
+  s.backups.forEach(x => b.append(el('div', {}, el('time', {textContent: new Date(x.time * 1000).toLocaleString('cs-CZ', {day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'})}),
+                                     el('span', {textContent: `${x.name} · ${(x.size / 1e6).toFixed(1)} MB`}))));
+  const l = $('log'); l.innerHTML = '';
+  s.log.forEach(x => l.append(el('div', {}, el('time', {textContent: when(x.ts)}), el('span', {textContent: x.message}))));
+  return s;
+}
+async function run(btn, path, key, note){
+  btn.disabled = true;
+  try { await fetch(path, {method: 'POST'}); } catch(e){}
+  toast(note);
+  const poll = setInterval(async () => { const s = await load(); if (!s[key].running){ clearInterval(poll); toast('Hotovo'); } }, 3000);
+  load();
+}
+$('checkBtn').onclick = () => run($('checkBtn'), '/api/check', 'check', 'Kontrola streamů běží');
+$('epgBtn').onclick = () => run($('epgBtn'), '/api/epg', 'epg', 'Stahuji program');
+$('catBtn').onclick = () => run($('catBtn'), '/api/catalog/refresh', 'catalog', 'Obnovuji katalog');
+$('wikiBtn').onclick = () => run($('wikiBtn'), '/api/wiki', 'wiki', 'Generuji wiki');
+$('backupBtn').onclick = async () => { const r = await (await fetch('/api/backup', {method: 'POST'})).json(); toast('Záloha ' + r.name); load(); };
+$('usageRefresh').onclick = refreshUsage;
+setInterval(() => { if (document.visibilityState==='visible') refreshUsage(); },15000);
+document.addEventListener('visibilitychange',() => { if (document.visibilityState==='visible') refreshUsage(); });
+load();
+</script>
+</body>
+</html>
